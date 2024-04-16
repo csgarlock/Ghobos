@@ -1,10 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func main() {
 	InitializeMoveBoards()
-	for i, s := range moveBoards[Bishop] {
+	for i, s := range moveBoards[Knight] {
 		fmt.Println("Rank = ", Square(i).Rank(), ", File = ", Square(i).File())
 		fmt.Println(s)
 	}

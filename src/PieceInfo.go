@@ -51,3 +51,64 @@ var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, Lef
 var bishopSteps [4]Step = [4]Step{UpRightStep, UpLeftStep, DownRightStep, DownLeftStep}
 var rookSteps [4]Step = [4]Step{RightStep, UpStep, LeftStep, DownStep}
 var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
+
+var stepboards [16][64]bool = [16][64]bool{}
+
+var moveBoards [5][64]Bitboard = [5][64]Bitboard{}
+var pawnMoveBoards [2][64]Bitboard = [2][64]Bitboard{}
+var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
+
+func InitializeMoveBoards() {
+	InitializeStepBoard()
+	FillSlidingAttacks(&bishopSteps, &moveBoards[Bishop])
+	FillSlidingAttacks(&rookSteps, &moveBoards[Rook])
+	var square Square
+	for square = 0; square < 64; square++ {
+		var bitboard Bitboard = EmptyBitboard
+		for _, step := range kingSteps {
+			if square.tryStep(step) {
+				bitboard |= 1 << square.Step(step)
+			}
+		}
+		moveBoards[King][square] = bitboard
+		bitboard = EmptyBitboard
+		for _, step := range knightSteps {
+			if square.tryStep(step) {
+				bitboard |= 1 << square.Step(step)
+			}
+		}
+		moveBoards[Knight][square] = bitboard
+		moveBoards[Queen][square] = moveBoards[Bishop][square] | moveBoards[Rook][square]
+	}
+}
+
+func InitializeStepBoard() {
+	for i, step := range allSteps {
+		center := Square(35)
+		centerStep := center.Step(step)
+		rankDiff := centerStep.Rank() - center.Rank()
+		fileDiff := centerStep.File() - center.File()
+		var square Square
+		for square = 0; square < 64; square++ {
+			squareStep := square.Step(step)
+			if squareStep.Rank()-square.Rank() == rankDiff && squareStep.File()-square.File() == fileDiff {
+				stepboards[i][square] = true
+			} else {
+				stepboards[i][square] = false
+			}
+		}
+	}
+}
+
+func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
+	var square Square
+	for _, step := range steps {
+		for square = 0; square < 64; square++ {
+			var stepSquare Square = square
+			for stepSquare.tryStep(step) {
+				stepSquare = stepSquare.Step(step)
+				resultBitboards[square] |= 1 << stepSquare
+			}
+		}
+	}
+}
