@@ -21,6 +21,8 @@ var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
 
 func InitializeMoveBoards() {
 	InitializeStepBoard()
+	FillSlidingAttacks(&bishopSteps, &moveBoards[Bishop])
+	FillSlidingAttacks(&rookSteps, &moveBoards[Rook])
 	var square Square
 	for square = 0; square < 64; square++ {
 		var bitboard Bitboard = EmptyBitboard
@@ -37,6 +39,7 @@ func InitializeMoveBoards() {
 			}
 		}
 		moveBoards[Knight][square] = bitboard
+		moveBoards[Queen][square] = moveBoards[Bishop][square] | moveBoards[Rook][square]
 	}
 }
 
@@ -55,6 +58,19 @@ func InitializeStepBoard() {
 				stepboards[i][square] = true
 			} else {
 				stepboards[i][square] = false
+			}
+		}
+	}
+}
+
+func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
+	var square Square
+	for _, step := range steps {
+		for square = 0; square < 64; square++ {
+			var stepSquare Square = square
+			for stepSquare.tryStep(step) {
+				stepSquare = stepSquare.Step(step)
+				resultBitboards[square] |= 1 << stepSquare
 			}
 		}
 	}
