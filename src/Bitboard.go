@@ -11,7 +11,28 @@ type Square uint8
 const (
 	EmptyBitboard     Bitboard = 0
 	UniversalBitboard Bitboard = ^EmptyBitboard
+
+	Rank0 Bitboard = 0xff
+	Rank1 Bitboard = Rank0 << (8 * 1)
+	Rank2 Bitboard = Rank0 << (8 * 2)
+	Rank3 Bitboard = Rank0 << (8 * 3)
+	Rank4 Bitboard = Rank0 << (8 * 4)
+	Rank5 Bitboard = Rank0 << (8 * 5)
+	Rank6 Bitboard = Rank0 << (8 * 6)
+	Rank7 Bitboard = Rank0 << (8 * 7)
+
+	File0 Bitboard = 0x0101010101010101
+	File1 Bitboard = File0 << 1
+	File2 Bitboard = File0 << 2
+	File3 Bitboard = File0 << 3
+	File4 Bitboard = File0 << 4
+	File5 Bitboard = File0 << 5
+	File6 Bitboard = File0 << 6
+	File7 Bitboard = File0 << 7
 )
+
+var ranks [8]Bitboard = [8]Bitboard{Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7}
+var files [8]Bitboard = [8]Bitboard{File0, File1, File2, File3, File4, File5, File6, File7}
 
 func (s Square) tryStep(step Step) bool { return stepboards[stepMap[step]][s] }
 func (s Square) Step(step Step) Square  { return (s + Square(step)) % 64 }
