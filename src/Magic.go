@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/bits"
 	"math/rand"
+	"sync"
 )
 
 type Magic struct {
@@ -23,25 +24,37 @@ func InitializeMagics() {
 	var square Square
 	var runningBishopOffset uint32 = 0
 	var runningRookOffset uint32 = 0
+	wg := sync.WaitGroup{}
 	for square = 0; square < 64; square++ {
-		bishopMagics[square] = Magic{0, 0, 0, 0}
-		rookMagics[square] = Magic{0, 0, 0, 0}
-		squareBishopTable, bishopShift := FindMagic(square, &moveBoards[Bishop], &bishopMagics[square], &bishopSteps)
-		bishopMagics[square].offset = runningBishopOffset
-		squareRookTable, rookShift := FindMagic(square, &moveBoards[Rook], &rookMagics[square], &rookSteps)
-		rookMagics[square].offset = runningRookOffset
-		for i, board := range *squareBishopTable {
-			bishopTable[i+int(runningBishopOffset)] = board
-		}
-		for i, board := range *squareRookTable {
-			rookTable[i+int(runningRookOffset)] = board
-		}
-		runningBishopOffset += bishopShift
-		runningRookOffset += rookShift
+		wg.Add(1)
+		go findMagicSquare(square, &wg, runningBishopOffset, runningRookOffset)
+		bishopMask := moveBoards[Bishop][square] & (^(Rank0 | Rank7) | ranks[square.Rank()]) & (^(File0 | File7) | files[square.File()])
+		bishopShift := math.Pow(2, float64(bits.OnesCount64(uint64(bishopMask))))
+		rookMask := moveBoards[Rook][square] & (^(Rank0 | Rank7) | ranks[square.Rank()]) & (^(File0 | File7) | files[square.File()])
+		rookShift := math.Pow(2, float64(bits.OnesCount64(uint64(rookMask))))
+		runningBishopOffset += uint32(bishopShift)
+		runningRookOffset += uint32(rookShift)
+	}
+	wg.Wait()
+}
+
+func findMagicSquare(square Square, wg *sync.WaitGroup, bishopOffset uint32, rookOffset uint32) {
+	defer wg.Done()
+	bishopMagics[square] = Magic{0, 0, 0, 0}
+	rookMagics[square] = Magic{0, 0, 0, 0}
+	squareBishopTable := FindMagic(square, &moveBoards[Bishop], &bishopMagics[square], &bishopSteps)
+	bishopMagics[square].offset = bishopOffset
+	squareRookTable := FindMagic(square, &moveBoards[Rook], &rookMagics[square], &rookSteps)
+	rookMagics[square].offset = rookOffset
+	for i, board := range *squareBishopTable {
+		bishopTable[i+int(bishopOffset)] = board
+	}
+	for i, board := range *squareRookTable {
+		rookTable[i+int(rookOffset)] = board
 	}
 }
 
-func FindMagic(s Square, attacks *[64]Bitboard, magic *Magic, pieceSteps *[4]Step) (*[]Bitboard, uint32) {
+func FindMagic(s Square, attacks *[64]Bitboard, magic *Magic, pieceSteps *[4]Step) *[]Bitboard {
 	attackBoard := attacks[s]
 	mask := attackBoard & (^(Rank0 | Rank7) | ranks[s.Rank()]) & (^(File0 | File7) | files[s.File()])
 	magic.mask = mask
@@ -76,7 +89,7 @@ func FindMagic(s Square, attacks *[64]Bitboard, magic *Magic, pieceSteps *[4]Ste
 			}
 		}
 		if goodTable {
-			return &table, tableSize
+			return &table
 		}
 
 	}
