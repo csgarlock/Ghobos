@@ -62,6 +62,7 @@ func InitializeMoveBoards() {
 	InitializeStepBoard()
 	FillSlidingAttacks(&bishopSteps, &moveBoards[Bishop])
 	FillSlidingAttacks(&rookSteps, &moveBoards[Rook])
+	InitializeMagics()
 	var square Square
 	for square = 0; square < 64; square++ {
 		var bitboard Bitboard = EmptyBitboard
@@ -111,4 +112,16 @@ func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
 			}
 		}
 	}
+}
+
+func findBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) Bitboard {
+	var result Bitboard = 0
+	for _, step := range steps {
+		var stepSquare Square = square
+		for stepSquare.tryStep(step) && ((1<<stepSquare)&occupied == 0) {
+			stepSquare = stepSquare.Step(step)
+			result |= 1 << stepSquare
+		}
+	}
+	return result
 }

@@ -8,6 +8,11 @@ import (
 type Bitboard uint64
 type Square uint8
 
+type SubsetIterator struct {
+	n Bitboard
+	d Bitboard
+}
+
 const (
 	EmptyBitboard     Bitboard = 0
 	UniversalBitboard Bitboard = ^EmptyBitboard
@@ -43,6 +48,19 @@ func LSB(b Bitboard) Square { return Square(bits.TrailingZeros64(uint64(b))) }
 func PopLSB(b Bitboard) (Square, Bitboard) {
 	lsb := LSB(b)
 	return lsb, b ^ (1 << Bitboard(lsb))
+}
+
+func NewSubsetIterator(d Bitboard) *SubsetIterator {
+	return &SubsetIterator{n: 0, d: d}
+}
+
+func (sI *SubsetIterator) nextSubset() Bitboard {
+	sI.n = (sI.n - sI.d) & sI.d
+	return sI.n
+}
+
+func (sI *SubsetIterator) getSubset() Bitboard {
+	return sI.n
 }
 
 func (b Bitboard) String() string {
