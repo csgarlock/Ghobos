@@ -15,6 +15,7 @@ import (
 type BoardInfo uint8
 type State struct {
 	board     *Board
+	turn      uint8 // 0 for White, 1 for Black
 	boardInfo BoardInfo
 }
 
@@ -40,13 +41,14 @@ func FenState(fenString string) *State {
 			column++
 		}
 	}
-	var boardInfo BoardInfo = 0
 	turnString := splitFenString[1]
+	turn := uint8(0)
 	if turnString == "b" {
-		boardInfo |= 1
+		turn = 1
 	} else if turnString != "w" {
 		panic("Invalid Fen String (Invalid Turn)")
 	}
+	var boardInfo BoardInfo = 0
 	castleString := splitFenString[2]
 	if castleString != "-" {
 		castleOptions := [4]rune{'K', 'Q', 'k', 'q'}
@@ -69,7 +71,22 @@ func FenState(fenString string) *State {
 			panic("Invalid Fen String (Invalid En Passant Square)")
 		}
 	}
-	return &State{board: &board, boardInfo: boardInfo}
+	return &State{board: &board, turn: turn, boardInfo: boardInfo}
+}
+
+func (s *State) genAllMoves() /**[]Move*/ {
+	var friendIndex uint8 = s.turn * 6
+	var enemyIndex uint8 = (1 - s.turn) * 6
+	friendBoard := s.board[friendIndex]
+	for i := friendIndex + 1; i < friendIndex+6; i++ {
+		friendBoard |= s.board[i]
+	}
+	enemyBoard := s.board[enemyIndex]
+	for i := enemyIndex + 1; i < enemyIndex+6; i++ {
+		enemyBoard |= s.board[i]
+	}
+	fmt.Println(friendBoard)
+	fmt.Println(enemyBoard)
 }
 
 func (s *State) String() string {
