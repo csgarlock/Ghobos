@@ -85,8 +85,6 @@ func (s *State) genAllMoves() /**[]Move*/ {
 	for i := enemyIndex + 1; i < enemyIndex+6; i++ {
 		enemyBoard |= s.board[i]
 	}
-	fmt.Println(friendBoard)
-	fmt.Println(enemyBoard)
 }
 
 func (s *State) String() string {

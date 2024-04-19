@@ -116,6 +116,9 @@ func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
 
 func findBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) Bitboard {
 	var result Bitboard = 0
+	if (1<<square)&occupied != 0 {
+		occupied = occupied ^ (1 << square)
+	}
 	for _, step := range steps {
 		var stepSquare Square = square
 		for stepSquare.tryStep(step) && ((1<<stepSquare)&occupied == 0) {
