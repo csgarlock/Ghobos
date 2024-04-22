@@ -47,7 +47,8 @@ var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2,
 
 var allSteps [16]Step = [16]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep, KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
 var kingSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
-var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
+
+// var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
 var bishopSteps [4]Step = [4]Step{UpRightStep, UpLeftStep, DownRightStep, DownLeftStep}
 var rookSteps [4]Step = [4]Step{RightStep, UpStep, LeftStep, DownStep}
 var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
@@ -80,6 +81,22 @@ func InitializeMoveBoards() {
 		}
 		moveBoards[Knight][square] = bitboard
 		moveBoards[Queen][square] = moveBoards[Bishop][square] | moveBoards[Rook][square]
+		var whitePawnAttacks Bitboard = 0
+		var blackPawnAttacks Bitboard = 0
+		if square.tryStep(UpLeftStep) {
+			whitePawnAttacks |= (1 << square.Step(UpLeftStep))
+		}
+		if square.tryStep(UpRightStep) {
+			whitePawnAttacks |= (1 << square.Step(UpRightStep))
+		}
+		if square.tryStep(DownLeftStep) {
+			blackPawnAttacks |= (1 << square.Step(DownLeftStep))
+		}
+		if square.tryStep(DownRightStep) {
+			blackPawnAttacks |= (1 << square.Step(DownRightStep))
+		}
+		pawnAttackBoards[White][square] = whitePawnAttacks
+		pawnAttackBoards[Black][square] = blackPawnAttacks
 	}
 }
 
@@ -114,7 +131,7 @@ func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
 	}
 }
 
-func findBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) Bitboard {
+func FindBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) Bitboard {
 	var result Bitboard = 0
 	if (1<<square)&occupied != 0 {
 		occupied = occupied ^ (1 << square)
@@ -127,4 +144,26 @@ func findBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) 
 		}
 	}
 	return result
+}
+
+func GetPawnMoves(square Square, occupied Bitboard, moveStep Step, homeRank int8) Bitboard {
+	var resultBoard Bitboard = 0
+	if square.Rank() == homeRank {
+		square = square.Step(moveStep)
+		if occupied&(1<<Bitboard(square)) == 0 {
+			resultBoard |= (1 << Bitboard(square))
+		} else {
+			return resultBoard
+		}
+		square = square.Step(moveStep)
+		if occupied&(1<<Bitboard(square)) == 0 {
+			resultBoard |= (1 << Bitboard(square))
+		}
+		return resultBoard
+	}
+	square = square.Step(moveStep)
+	if occupied&(1<<Bitboard(square)) == 0 {
+		resultBoard |= (1 << Bitboard(square))
+	}
+	return resultBoard
 }

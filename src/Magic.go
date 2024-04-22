@@ -65,7 +65,7 @@ func FindMagic(s Square, attacks *[64]Bitboard, magic *Magic, pieceSteps *[4]Ste
 	moveTable := make([]Bitboard, tableSize)
 	subIter := NewSubsetIterator(mask)
 	for i := range tableSize {
-		moveTable[i] = findBlockedSlidingAttack(s, pieceSteps, subIter.getSubset())
+		moveTable[i] = FindBlockedSlidingAttack(s, pieceSteps, subIter.getSubset())
 		subIter.nextSubset()
 	}
 	for {
@@ -109,4 +109,10 @@ func getBishopMoves(square Square, occupied Bitboard) Bitboard {
 func getRookMoves(square Square, occupied Bitboard) Bitboard {
 	magic := &rookMagics[square]
 	return rookTable[GetMagicIndex(magic, occupied)]
+}
+
+func getQueenMoves(square Square, occupied Bitboard) Bitboard {
+	bishopMagic := &bishopMagics[square]
+	rookMagic := &rookMagics[square]
+	return bishopTable[GetMagicIndex(bishopMagic, occupied)] | rookTable[GetMagicIndex(rookMagic, occupied)]
 }

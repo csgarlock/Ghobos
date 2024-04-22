@@ -44,10 +44,17 @@ func (s Square) Step(step Step) Square  { return (s + Square(step)) % 64 }
 
 func (s Square) Rank() int8 { return int8(s / 8) }
 func (s Square) File() int8 { return int8(s % 8) }
-func LSB(b Bitboard) Square { return Square(bits.TrailingZeros64(uint64(b))) }
-func PopLSB(b Bitboard) (Square, Bitboard) {
-	lsb := LSB(b)
-	return lsb, b ^ (1 << Bitboard(lsb))
+
+func PopLSB(b *Bitboard) Square {
+	lsb := Square(bits.TrailingZeros64(uint64(*b)))
+	*b ^= (1 << Bitboard(lsb))
+	return lsb
+}
+
+func PopMSB(b *Bitboard) Square {
+	msb := 63 - Square(bits.LeadingZeros64(uint64(*b)))
+	*b ^= (1 << Bitboard(msb))
+	return msb
 }
 
 func NewSubsetIterator(d Bitboard) *SubsetIterator {

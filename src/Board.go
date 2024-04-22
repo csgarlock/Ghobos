@@ -35,7 +35,7 @@ func (b *Board) String() string {
 		bitboard := b[i]
 		var spot Square
 		for bitboard != EmptyBitboard {
-			spot, bitboard = PopLSB(bitboard)
+			spot = PopLSB(&bitboard)
 			if result[spot] != "" {
 				fmt.Println("Two pieces located in same place")
 			}
