@@ -48,7 +48,7 @@ var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2,
 var allSteps [16]Step = [16]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep, KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
 var kingSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
 
-// var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
+var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
 var bishopSteps [4]Step = [4]Step{UpRightStep, UpLeftStep, DownRightStep, DownLeftStep}
 var rookSteps [4]Step = [4]Step{RightStep, UpStep, LeftStep, DownStep}
 var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
@@ -56,7 +56,6 @@ var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightSt
 var stepboards [16][64]bool = [16][64]bool{}
 
 var moveBoards [5][64]Bitboard = [5][64]Bitboard{}
-var pawnMoveBoards [2][64]Bitboard = [2][64]Bitboard{}
 var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
 
 func InitializeMoveBoards() {

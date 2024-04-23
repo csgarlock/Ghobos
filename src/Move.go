@@ -12,9 +12,14 @@ const (
 	BitMask6 uint16 = 0x3f
 	BitMask2 uint16 = 0x3
 
-	CastleSpecialMove    = 0
-	PromotionSpecialMove = 1
-	EnPassantSpacialMove = 2
+	CastleSpecialMove    = 1
+	PromotionSpecialMove = 2
+	EnPassantSpacialMove = 3
+
+	QueenPromotion  = 0
+	RookPromotion   = 1
+	KnightPromotion = 2
+	BishopPromotion = 3
 )
 
 func (m Move) OriginSquare() Square {
@@ -39,8 +44,7 @@ func BuildMove(origin Square, destination Square, promotion uint16, specialMove 
 
 func (m Move) String() string {
 	result := ""
-	result += fmt.Sprintf("Source: Rank = %d, File = %d\n", m.OriginSquare().Rank(), m.OriginSquare().File())
-	result += fmt.Sprintf("Destination: Rank = %d, File = %d\n", m.DestinationSquare().Rank(), m.DestinationSquare().File())
+	result += m.OriginSquare().String() + " To " + m.DestinationSquare().String() + "\n"
 	result += fmt.Sprintf("Promotion Type: %b\n", m.PromotionType())
 	result += fmt.Sprintf("Special Move Type: %b", m.SpecialMove())
 	return result

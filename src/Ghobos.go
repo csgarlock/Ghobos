@@ -2,43 +2,64 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
+	"strconv"
 )
 
 func main() {
 	InitializeMoveBoards()
 	fmt.Println("Setup Finished")
 	state := FenState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+	var dC int64 = 0
+	fmt.Println(state)
+	state.MakeMove(BuildMove(12, 28, 0, 0), &dC)
+	fmt.Println(state)
+	state.MakeMove(BuildMove(48, 40, 0, 0), &dC)
+	fmt.Println(state)
+	state.MakeMove(BuildMove(3, 39, 0, 0), &dC)
+	fmt.Println(state)
 	moves := state.genAllMoves(true)
-	fmt.Println(len(*moves))
-	for _, move := range *moves {
-		fmt.Println(move)
+	for i, move := range *moves {
+		fmt.Println("Move " + strconv.FormatInt(int64(i), 10) + ": " + move.String())
 	}
+	fmt.Println(len(*moves))
+	// var perftCounter int64 = 0
+	// var checkCounter int64 = 0
+	// var mateCounter int64 = 0
+	// start := time.Now()
+	// Perft(4, &perftCounter, state, &checkCounter, &mateCounter)
+	// fmt.Println(time.Since(start))
+	// moves := state.genAllMoves(true)
+	// for _, move := range *moves {
+	// 	state.MakeMove(move, &checkCounter)
+	// 	fmt.Println(move)
+	// 	perftCounter = 0
+	// 	Perft(3, &perftCounter, state, &checkCounter, &mateCounter)
+	// 	state.UnMakeMove(move)
+	// 	fmt.Println(perftCounter)
+	// }
+	// fmt.Println(perftCounter)
+	// fmt.Println(checkCounter)
+	// fmt.Println(mateCounter)
 }
 
-func checkMagics() {
-	for i := 0; i < 100000; i++ {
-		var occupied Bitboard = Bitboard(rand.Uint64() & rand.Uint64())
-		square := Square(rand.Intn(64))
-		bruteTestBishop := FindBlockedSlidingAttack(square, &bishopSteps, occupied)
-		magicTestBishop := getBishopMoves(square, occupied)
-		bruteTestRook := FindBlockedSlidingAttack(square, &rookSteps, occupied)
-		magicTestRook := getRookMoves(square, occupied)
-		if bruteTestBishop != magicTestBishop {
-			fmt.Println("Failed Bishop Compare")
-			fmt.Println(square)
-			fmt.Println("Brute")
-			fmt.Println(bruteTestBishop)
-			fmt.Println("Magic")
-			fmt.Println(magicTestBishop)
+func Perft(depth int64, moveCounter *int64, s *State, checkCounter *int64, mateCounter *int64) {
+	if depth == 0 {
+		*moveCounter++
+		if s.check {
+			moves := s.genAllMoves(true)
+			if len(*moves) == 0 {
+				*mateCounter++
+			}
 		}
-		if bruteTestRook != magicTestRook {
-			fmt.Println("Failed Rook Compare")
-			fmt.Println(square)
-			fmt.Println("Brute")
-			fmt.Println(bruteTestRook)
-			fmt.Println("Magic")
-			fmt.Println(magicTestRook)
+	} else {
+		moves := s.genAllMoves(true)
+		if len(*moves) == 0 {
+			*mateCounter++
+		}
+		for _, move := range *moves {
+			s.MakeMove(move, checkCounter)
+			Perft(depth-1, moveCounter, s, checkCounter, mateCounter)
+			s.UnMakeMove(move)
 		}
 	}
 }

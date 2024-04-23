@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math/bits"
+	"strconv"
 )
 
 type Bitboard uint64
@@ -84,4 +85,12 @@ func (b Bitboard) String() string {
 		outputS = lineS + "\n" + outputS
 	}
 	return outputS
+}
+
+func (s Square) String() string {
+	fileMap := [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
+	rank := s.Rank()
+	file := s.File()
+	return fileMap[file] + strconv.FormatInt(int64(rank+1), 10)
+
 }
