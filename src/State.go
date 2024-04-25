@@ -157,8 +157,8 @@ func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64
 			s.castleHistory.Push(s.turn+2, s.ply)
 		}
 	}
-	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.turn = 1 - s.turn
+	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	if s.check {
 		*checkCounter++
 		// fmt.Println(s)
@@ -271,11 +271,11 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	kingSquare := popFunction(&kingBoard)
 	enemyBishopSliders := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
 	enemyRookSliders := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
-	pinnedBoard, pinSafetys := getKingPins(kingSquare, friendBoard, enemyBishopSliders, enemyRookSliders)
-	//fmt.Println(pinnedBoard)
+	pinnedBoard, pinSafetys := getKingPins(kingSquare, friendBoard, enemyBishopSliders, enemyRookSliders, enemyBoard)
+	// fmt.Println(pinnedBoard)
 	// for _, pinSafe := range *pinSafetys {
-	// 	//fmt.Println(pinSafe.key)
-	// 	//fmt.Println(pinSafe.safeSquares)
+	// 	fmt.Println(pinSafe.key)
+	// 	fmt.Println(pinSafe.safeSquares)
 	// }
 	safetyCheckBoard := &SafetyCheckBoards{enemyBishopSliders, enemyRookSliders, s.board[enemyIndex+Knight], s.board[enemyIndex+King], s.board[enemyIndex+Pawn], enemyBoard}
 	checkBlockerSquares := UniversalBitboard
@@ -368,7 +368,9 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 				attackSquare := popFunction(&pawnAttacks)
 				if attackSquare == s.enPassantSquare {
 					if s.canEnpassant {
-						moves = append(moves, BuildMove(pawnSquare, attackSquare, 0, EnPassantSpacialMove))
+						if s.EnPassantSafetyCheck(pawnSquare, attackSquare, friendIndex, enemyIndex, occupied) {
+							moves = append(moves, BuildMove(pawnSquare, attackSquare, 0, EnPassantSpacialMove))
+						}
 					}
 				} else {
 					if attackSquare.Rank() == promotionRank {
@@ -448,7 +450,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	return &moves
 }
 
-func getKingPins(kingSquare Square, friendBoard Bitboard, bishopBoard Bitboard, rookBoard Bitboard) (Bitboard, *[]PinSafety) {
+func getKingPins(kingSquare Square, friendBoard Bitboard, bishopBoard Bitboard, rookBoard Bitboard, enemyBoard Bitboard) (Bitboard, *[]PinSafety) {
 	pinSafetys := make([]PinSafety, 0, 8)
 	var pinnedBoard Bitboard = 0
 	for _, step := range queenSteps {
@@ -457,36 +459,38 @@ func getKingPins(kingSquare Square, friendBoard Bitboard, bishopBoard Bitboard, 
 			if step == UpStep || step == RightStep || step == DownStep || step == LeftStep {
 				possiblePinners = rookBoard
 			}
-			if kingSquare.tryStep(step) {
-				stepSquare := kingSquare
-				pinnedFound := false
-				doubleBlocked := false
-				enemyFound := false
-				var pinnedSquare Square
-				var safeSquares Bitboard = 0
-				for stepSquare.tryStep(step) {
-					stepSquare = stepSquare.Step(step)
-					stepBoard := Bitboard(1 << stepSquare)
-					safeSquares |= stepBoard
-					if friendBoard&stepBoard != 0 {
-						if pinnedFound {
-							doubleBlocked = true
-							break
-						} else {
-							pinnedFound = true
-							pinnedSquare = stepSquare
-						}
-					}
-					if possiblePinners&stepBoard != 0 {
-						enemyFound = true
+			nonPinners := enemyBoard & (^possiblePinners)
+			stepSquare := kingSquare
+			pinnedFound := false
+			doubleBlocked := false
+			enemyFound := false
+			var pinnedSquare Square
+			var safeSquares Bitboard = 0
+			for stepSquare.tryStep(step) {
+				stepSquare = stepSquare.Step(step)
+				stepBoard := Bitboard(1 << stepSquare)
+				safeSquares |= stepBoard
+				if friendBoard&stepBoard != 0 {
+					if pinnedFound {
+						doubleBlocked = true
 						break
+					} else {
+						pinnedFound = true
+						pinnedSquare = stepSquare
 					}
 				}
-				if pinnedFound && enemyFound && (!doubleBlocked) {
-					pin := Bitboard(1 << pinnedSquare)
-					pinnedBoard |= pin
-					pinSafetys = append(pinSafetys, PinSafety{pinnedSquare, safeSquares})
+				if possiblePinners&stepBoard != 0 {
+					enemyFound = true
+					break
 				}
+				if nonPinners&stepBoard != 0 {
+					break
+				}
+			}
+			if pinnedFound && enemyFound && (!doubleBlocked) {
+				pin := Bitboard(1 << pinnedSquare)
+				pinnedBoard |= pin
+				pinSafetys = append(pinSafetys, PinSafety{pinnedSquare, safeSquares})
 			}
 		}
 	}
@@ -550,8 +554,36 @@ func isSquareSafe(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckB
 	if kingCast&enemyBoards.kingBoard != 0 {
 		return false
 	}
-	pawnCast := pawnAttackBoards[1-turn][square]
+	pawnCast := pawnAttackBoards[turn][square]
 	return pawnCast&enemyBoards.pawnsBoard == 0
+}
+
+func (s *State) EnPassantSafetyCheck(startingSquare Square, desSquare Square, friendIndex uint8, enemyIndex uint8, occupied Bitboard) bool {
+	startingBoard := Bitboard(1 << Bitboard(startingSquare))
+	desBoard := Bitboard(1 << Bitboard(desSquare))
+	friendPawnBoard := s.board[friendIndex+Pawn]
+	friendPawnBoard ^= startingBoard
+	friendPawnBoard ^= desBoard
+	enemyPawnReverseStep := DownStep
+	if s.turn == Black {
+		enemyPawnReverseStep = UpStep
+	}
+	targetSquare := desSquare.Step(enemyPawnReverseStep)
+	targetBoard := Bitboard(1 << Bitboard(targetSquare))
+	enemyPawnBoard := s.board[enemyIndex+Pawn]
+	enemyPawnBoard ^= targetBoard
+	occupied ^= startingBoard | targetBoard
+	occupied |= desBoard
+	enemyBishopBoard := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
+	enemyRookBoard := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
+	friendKingBoard := s.board[friendIndex+King]
+	kingSquare := PopLSB(&friendKingBoard)
+	bishopCast := getBishopMoves(kingSquare, occupied)
+	if bishopCast&enemyBishopBoard != 0 {
+		return false
+	}
+	rookCast := getRookMoves(kingSquare, occupied)
+	return rookCast&enemyRookBoard == 0
 }
 
 func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckBoards, turn uint8) Bitboard {

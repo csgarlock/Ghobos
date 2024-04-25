@@ -9,10 +9,10 @@ func main() {
 	InitializeMoveBoards()
 	// fmt.Println(pawnAttackBoards[Black][23])
 	// fmt.Println("Setup Finished")
-	state := FenState("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ")
+	state := FenState("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ")
 	// var dC int64 = 0
-	fmt.Println(state)
-	// state.MakeMove(BuildMove(4, 2, 0, CastleSpecialMove), &dC, &dC, &dC)
+	// fmt.Println(state)
+	// state.MakeMove(BuildMove(14, 30, 0, 0), &dC, &dC, &dC)
 	// fmt.Println(state)
 	// state.UnMakeMove(BuildMove(4, 6, 0, CastleSpecialMove))
 	// fmt.Println(state)
@@ -24,45 +24,41 @@ func main() {
 	// fmt.Println(state.enPassantSquare)
 	// fmt.Println(state)
 	// fmt.Println(state.enPassantSquareHistory)
-	moves := state.genAllMoves(true)
-	for i, move := range *moves {
-		fmt.Printf("Move %d\n", i)
-		fmt.Println(move)
-	}
-	fmt.Println(len(*moves))
-	// var perftCounter int64 = 0
-	// var checkCounter int64 = 0
-	// var mateCounter int64 = 0
-	// var enPassantCounter int64 = 0
-	// var castleCounter int64 = 0
-	// // var total int64 = 0
-	// var timer time.Duration = 0
-	// start := time.Now()
-	// Perft(1, &perftCounter, state, &checkCounter, &mateCounter, &enPassantCounter, &castleCounter, &timer)
+	// moves := state.genAllMoves(true)
+	// for i, move := range *moves {
+	// 	fmt.Printf("Move %d\n", i)
+	// 	fmt.Println(move)
+	// }
+	// fmt.Println(len(*moves))
+	var perftCounter int64 = 0
+	var checkCounter int64 = 0
+	var mateCounter int64 = 0
+	var enPassantCounter int64 = 0
+	var castleCounter int64 = 0
+	var timer time.Duration = 0
+	start := time.Now()
+	Perft(3, &perftCounter, state, &checkCounter, &mateCounter, &enPassantCounter, &castleCounter, &timer)
 	// moves := state.genAllMoves(true)
 	// for _, move := range *moves {
 	// 	state.MakeMove(move, &checkCounter, &enPassantCounter, &castleCounter)
 	// 	fmt.Println(move)
-	// 	if move == BuildMove(4, 5, 0, 0) {
-	// 		mvs := state.genAllMoves(true)
-	// 		fmt.Println(state)
-	// 		for _, m := range *mvs {
+	// 	if move == BuildMove(14, 30, 0, 0) {
+	// 		for _, m := range *state.genAllMoves(true) {
 	// 			fmt.Println(m)
 	// 		}
 	// 	}
-	// 	total += perftCounter
 	// 	perftCounter = 0
 	// 	Perft(1, &perftCounter, state, &checkCounter, &mateCounter, &enPassantCounter, &castleCounter, &timer)
 	// 	state.UnMakeMove(move)
 	// 	fmt.Println(perftCounter)
 	// }
-	// fmt.Printf("Highest Depth Node Count: %d\n", perftCounter)
-	// fmt.Printf("Check Counter: %d\n", checkCounter)
-	// fmt.Printf("Mate Counter: %d\n", mateCounter)
-	// fmt.Printf("En Passant Counter: %d\n", enPassantCounter)
-	// fmt.Printf("Castle Counter: %d\n", castleCounter)
-	// fmt.Println(time.Since(start))
-	// fmt.Println(timer)
+	fmt.Printf("Highest Depth Node Count: %d\n", perftCounter)
+	fmt.Printf("Check Counter: %d\n", checkCounter)
+	fmt.Printf("Mate Counter: %d\n", mateCounter)
+	fmt.Printf("En Passant Counter: %d\n", enPassantCounter)
+	fmt.Printf("Castle Counter: %d\n", castleCounter)
+	fmt.Println(time.Since(start))
+	fmt.Println(timer)
 }
 
 func Perft(depth int64, moveCounter *int64, s *State, checkCounter *int64, mateCounter *int64, enPassantCounter *int64, castleCounter *int64, sectionTimer *time.Duration) {
