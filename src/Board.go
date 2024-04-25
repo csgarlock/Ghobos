@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -43,16 +44,17 @@ func (b *Board) String() string {
 		}
 	}
 	resultS := ""
+	bottomline := "  -----------------"
 	for i := 0; i < 8; i++ {
-		lineS := ""
+		lineS := strconv.FormatInt(int64(i+1), 10) + " "
 		for j := 0; j < 8; j++ {
 			spot := result[i*8+j]
 			if spot == "" {
 				spot = " "
 			}
-			lineS += spot
+			lineS += "|" + spot
 		}
-		resultS = lineS + "\n" + resultS
+		resultS = lineS + "|\n" + bottomline + "\n" + resultS
 	}
-	return resultS
+	return bottomline + "\n" + resultS + "   a b c d e f g h "
 }

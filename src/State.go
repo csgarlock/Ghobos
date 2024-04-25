@@ -1,25 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
 
-// 0 turn (0 = White, 1 = Black)
-// 1 white king side castle
-// 2 white queen side castle
-// 3 black king side castle
-// 4 black queen side castle
-// 5 - 7 the file of the en passant square
-type BoardInfo uint8
+// 0 = White King Side, 1 = Black King Side, 2 = White Queen Side, 3 = Black Queen Side
+type CastleAvailability [4]bool
 type State struct {
-	board           *Board
-	turn            uint8 // 0 for White, 1 for Black
-	enPassantSquare Square
-	check           bool
-	captureHistory  *CaptureHistory
-	ply             uint16
-	boardInfo       BoardInfo
+	board                  *Board
+	turn                   uint8 // 0 for White, 1 for Black
+	enPassantSquare        Square
+	check                  bool
+	captureHistory         *CaptureHistory
+	canEnpassant           bool
+	enPassantSquareHistory *EnPassantSquareHistory
+	ply                    uint16
+	castleAvailability     *CastleAvailability
+	castleHistory          *CastleHistory
 }
 
 // Stores important information about the current move being generated to more easily pass to functions
@@ -45,16 +44,18 @@ type PinSafety struct {
 	safeSquares Bitboard
 }
 
-func (s *State) MakeMove(move Move, checkCounter *int64) {
+func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64, castleCounter *int64) {
 	var friendIndex uint8 = s.turn * 6
 	var enemyIndex uint8 = (1 - s.turn) * 6
 	startSquare := move.OriginSquare()
 	startBoard := Bitboard(1 << Bitboard(startSquare))
 	var startBoardPtr *Bitboard = nil
+	startBoardIndex := 0
 	for i := friendIndex; i < friendIndex+6; i++ {
 		board := &s.board[i]
 		if *board&startBoard != 0 {
 			startBoardPtr = board
+			startBoardIndex = int(i)
 		}
 	}
 	desSquare := move.DestinationSquare()
@@ -76,7 +77,21 @@ func (s *State) MakeMove(move Move, checkCounter *int64) {
 	}
 	specialMove := move.SpecialMove()
 	if specialMove == CastleSpecialMove {
-
+		*castleCounter++
+		rankIndex := Square(s.turn * 56)
+		rookSquare := Square(5 + rankIndex)
+		startingRookSquare := Square(7 + rankIndex)
+		if desSquare == Square(2) || desSquare == Square(58) {
+			s.castleAvailability[s.turn+2] = false
+			s.castleHistory.Push(s.turn+2, s.ply)
+			rookSquare = Square(3 + rankIndex)
+			startingRookSquare = Square(0 + rankIndex)
+		} else {
+			s.castleAvailability[s.turn] = false
+			s.castleHistory.Push(s.turn, s.ply)
+		}
+		s.board[friendIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
+		s.board[friendIndex+Rook] |= Bitboard(1 << Bitboard(rookSquare))
 	} else if specialMove == PromotionSpecialMove {
 		promotionType := move.PromotionType()
 		promotionBoard := &s.board[friendIndex+Queen]
@@ -90,6 +105,7 @@ func (s *State) MakeMove(move Move, checkCounter *int64) {
 		*promotionBoard |= desBoard
 		*startBoardPtr ^= desBoard
 	} else if specialMove == EnPassantSpacialMove {
+		*enPassantCounter++
 		enemyPawnBoard := &s.board[enemyIndex+Pawn]
 		relativeDownStep := DownStep
 		if s.turn == Black {
@@ -109,10 +125,43 @@ func (s *State) MakeMove(move Move, checkCounter *int64) {
 	pawnBoard := s.board[friendIndex+Pawn]
 	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
 	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
-	s.turn = 1 - s.turn
+	s.canEnpassant = false
+	s.enPassantSquare = Square(100)
+	if startBoardIndex == int(friendIndex)+Pawn {
+		rankDiff := startSquare.Rank() - desSquare.Rank()
+		if rankDiff == 2 || rankDiff == -2 {
+			if s.turn == 0 {
+				s.enPassantSquare = startSquare.Step(UpStep)
+			} else {
+				s.enPassantSquare = startSquare.Step(DownStep)
+			}
+			s.enPassantSquareHistory.Push(s.enPassantSquare, s.ply)
+			s.canEnpassant = true
+		}
+	} else if startBoardIndex == int(friendIndex)+King {
+		if s.castleAvailability[s.turn] {
+			s.castleAvailability[s.turn] = false
+			s.castleHistory.Push(s.turn, s.ply)
+		}
+		if s.castleAvailability[s.turn+2] {
+			s.castleAvailability[s.turn+2] = false
+			s.castleHistory.Push(s.turn+2, s.ply)
+		}
+	} else if startBoardIndex == int(friendIndex)+Rook {
+		if startSquare == Square(7+(8*s.turn)) {
+			s.castleAvailability[s.turn] = false
+			s.castleHistory.Push(s.turn, s.ply)
+		}
+		if startSquare == Square(8*s.turn) {
+			s.castleAvailability[s.turn+2] = false
+			s.castleHistory.Push(s.turn+2, s.ply)
+		}
+	}
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
+	s.turn = 1 - s.turn
 	if s.check {
 		*checkCounter++
+		// fmt.Println(s)
 	}
 	s.ply++
 }
@@ -141,16 +190,24 @@ func (s *State) UnMakeMove(move Move) {
 	}
 	specialMove := move.SpecialMove()
 	if specialMove == CastleSpecialMove {
-
-	} else if specialMove == EnPassantSpacialMove {
-		relativeDownStep := DownStep
-		if s.turn == Black {
-			relativeDownStep = UpStep
+		rankIndex := Square((1 - s.turn) * 56)
+		startingRookSquare := Square(5 + rankIndex)
+		endingRookSquare := Square(7 + rankIndex)
+		if desSquare == Square(2) || desSquare == Square(58) {
+			startingRookSquare = Square(3 + rankIndex)
+			endingRookSquare = Square(0 + rankIndex)
 		}
-		enPassantSquare := desSquare.Step(relativeDownStep)
+		s.board[enemyIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
+		s.board[enemyIndex+Rook] |= Bitboard(1 << Bitboard(endingRookSquare))
+	} else if specialMove == EnPassantSpacialMove {
+		relativeUpStep := UpStep
+		if s.turn == Black {
+			relativeUpStep = DownStep
+		}
+		enPassantSquare := desSquare.Step(relativeUpStep)
 		enPassantBoard := Bitboard(1 << Bitboard(enPassantSquare))
-		enemyPawnBoard := &s.board[enemyIndex+Pawn]
-		*enemyPawnBoard |= enPassantBoard
+		s.board[friendIndex+Pawn] ^= desBoard
+		s.board[friendIndex+Pawn] |= enPassantBoard
 	} else if specialMove == PromotionSpecialMove {
 		*desBoardPtr ^= startBoard
 		friendPawnBoard := &s.board[friendIndex+Pawn]
@@ -165,6 +222,22 @@ func (s *State) UnMakeMove(move Move) {
 	pawnBoard := s.board[enemyIndex+Pawn]
 	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
 	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
+	if s.enPassantSquareHistory.MostRecentCapturePly() == s.ply-1 {
+		enPassantEntry := s.enPassantSquareHistory.Pop()
+		s.enPassantSquare = enPassantEntry.square
+		s.canEnpassant = true
+	} else {
+		s.enPassantSquare = Square(100)
+		s.canEnpassant = false
+	}
+	if s.castleHistory.MostRecentCapturePly() == s.ply-1 {
+		castleEntry := s.castleHistory.Pop()
+		s.castleAvailability[castleEntry.castle] = true
+		if s.castleHistory.MostRecentCapturePly() == s.ply-1 {
+			castleEntry = s.castleHistory.Pop()
+			s.castleAvailability[castleEntry.castle] = true
+		}
+	}
 	s.turn = 1 - s.turn
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.ply--
@@ -199,6 +272,11 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	enemyBishopSliders := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
 	enemyRookSliders := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
 	pinnedBoard, pinSafetys := getKingPins(kingSquare, friendBoard, enemyBishopSliders, enemyRookSliders)
+	//fmt.Println(pinnedBoard)
+	// for _, pinSafe := range *pinSafetys {
+	// 	//fmt.Println(pinSafe.key)
+	// 	//fmt.Println(pinSafe.safeSquares)
+	// }
 	safetyCheckBoard := &SafetyCheckBoards{enemyBishopSliders, enemyRookSliders, s.board[enemyIndex+Knight], s.board[enemyIndex+King], s.board[enemyIndex+Pawn], enemyBoard}
 	checkBlockerSquares := UniversalBitboard
 	if s.check {
@@ -264,7 +342,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		for pawnBoard != 0 {
 			pawnSquare := popFunction(&pawnBoard)
 			var safeBoard Bitboard = UniversalBitboard
-			if pinnedBoard&(1<<Bitboard(pawnSquare)) == 0 {
+			if pinnedBoard&(1<<Bitboard(pawnSquare)) != 0 {
 				pinFound := false
 				doublePinned := false
 				var squarePinSafety PinSafety
@@ -289,7 +367,9 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 			for pawnAttacks != 0 {
 				attackSquare := popFunction(&pawnAttacks)
 				if attackSquare == s.enPassantSquare {
-					moves = append(moves, BuildMove(pawnSquare, attackSquare, 0, 3))
+					if s.canEnpassant {
+						moves = append(moves, BuildMove(pawnSquare, attackSquare, 0, EnPassantSpacialMove))
+					}
 				} else {
 					if attackSquare.Rank() == promotionRank {
 						moves = append(moves, BuildMove(pawnSquare, attackSquare, 0, PromotionSpecialMove))
@@ -339,6 +419,31 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 			}
 		}
 	}
+	// Castle Start
+	if !s.check {
+		rankIndex := s.turn * 56
+		// King Castle Start
+		if s.castleAvailability[s.turn] {
+			if friendBoard&Bitboard(0x60<<rankIndex) == 0 {
+				desSquare := kingSquare + 2
+				if isSquareSafe(Square(5+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
+					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
+				}
+			}
+		}
+		// King Castle End
+		// Queen Castle Start
+		if s.castleAvailability[s.turn+2] {
+			if friendBoard&Bitboard(0xE<<rankIndex) == 0 {
+				desSquare := kingSquare - 2
+				if isSquareSafe(Square(3+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
+					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
+				}
+			}
+		}
+		// Queen Castle End
+	}
+	// Castle End
 	// End King
 	return &moves
 }
@@ -352,33 +457,36 @@ func getKingPins(kingSquare Square, friendBoard Bitboard, bishopBoard Bitboard, 
 			if step == UpStep || step == RightStep || step == DownStep || step == LeftStep {
 				possiblePinners = rookBoard
 			}
-			stepSquare := kingSquare.Step(step)
-			pinnedFound := false
-			doubleBlocked := false
-			enemyFound := false
-			var pinnedSquare Square
-			var safeSquares Bitboard = 0
-			for stepSquare.tryStep(step) {
-				stepBoard := Bitboard(1 << stepSquare)
-				safeSquares |= stepBoard
-				stepSquare = stepSquare.Step(step)
-				if friendBoard&stepBoard != 0 {
-					if pinnedFound {
-						doubleBlocked = true
+			if kingSquare.tryStep(step) {
+				stepSquare := kingSquare
+				pinnedFound := false
+				doubleBlocked := false
+				enemyFound := false
+				var pinnedSquare Square
+				var safeSquares Bitboard = 0
+				for stepSquare.tryStep(step) {
+					stepSquare = stepSquare.Step(step)
+					stepBoard := Bitboard(1 << stepSquare)
+					safeSquares |= stepBoard
+					if friendBoard&stepBoard != 0 {
+						if pinnedFound {
+							doubleBlocked = true
+							break
+						} else {
+							pinnedFound = true
+							pinnedSquare = stepSquare
+						}
+					}
+					if possiblePinners&stepBoard != 0 {
+						enemyFound = true
 						break
-					} else {
-						pinnedFound = true
-						pinnedSquare = stepSquare
-						pinnedBoard |= stepBoard
 					}
 				}
-				if possiblePinners&stepBoard != 0 {
-					enemyFound = true
-					break
+				if pinnedFound && enemyFound && (!doubleBlocked) {
+					pin := Bitboard(1 << pinnedSquare)
+					pinnedBoard |= pin
+					pinSafetys = append(pinSafetys, PinSafety{pinnedSquare, safeSquares})
 				}
-			}
-			if pinnedFound && enemyFound && (!doubleBlocked) {
-				pinSafetys = append(pinSafetys, PinSafety{pinnedSquare, safeSquares})
 			}
 		}
 	}
@@ -443,10 +551,7 @@ func isSquareSafe(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckB
 		return false
 	}
 	pawnCast := pawnAttackBoards[1-turn][square]
-	if pawnCast*enemyBoards.pawnsBoard != 0 {
-		return true
-	}
-	return true
+	return pawnCast&enemyBoards.pawnsBoard == 0
 }
 
 func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckBoards, turn uint8) Bitboard {
@@ -592,21 +697,23 @@ func FenState(fenString string) *State {
 	} else if turnString != "w" {
 		panic("Invalid Fen String (Invalid Turn)")
 	}
-	var boardInfo BoardInfo = 0
+	castleAvailability := CastleAvailability{}
 	castleString := splitFenString[2]
 	if castleString != "-" {
-		castleOptions := [4]rune{'K', 'Q', 'k', 'q'}
+		castleOptions := [4]rune{'K', 'k', 'Q', 'q'}
 		for i, r := range castleOptions {
 			for _, c := range castleString {
 				if r == c {
-					boardInfo |= 1 << (i + 1)
+					castleAvailability[i] = true
 				}
 			}
 		}
 	}
 	var enPassantSquare Square
 	enpassantString := splitFenString[3]
+	canEnpassant := false
 	if enpassantString != "-" {
+		canEnpassant = true
 		rankMap := map[rune]int{'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
 		fileRune := enpassantString[0]
 		file, ok := rankMap[rune(fileRune)]
@@ -621,7 +728,11 @@ func FenState(fenString string) *State {
 		enPassantSquare = Square(rank*8 + file)
 
 	}
-	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), ply: 0, boardInfo: boardInfo}
+	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4)}
+}
+
+func StartingFen() *State {
+	return FenState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 }
 
 func (s *State) String() string {
@@ -635,23 +746,11 @@ func (s *State) String() string {
 		result += "Invalid Turn"
 	}
 	if s.check {
-		result += "In Check"
+		result += "In Check\n"
 	}
+	if s.canEnpassant {
+		result += "Can En Passant: " + s.enPassantSquare.String() + "\n"
+	}
+	result += fmt.Sprintf("Castle Availability: %v", *s.castleAvailability)
 	return result + "\n"
-}
-
-func (info BoardInfo) String() string {
-	resultString := ""
-	turn := info & 1
-	if turn == 0 {
-		resultString += "Turn: White\n"
-	} else if turn == 1 {
-		resultString += "Turn: Black\n"
-	} else {
-		resultString += "Invalid Turn"
-	}
-	// resultString += fmt.Sprintf("Castle Status: %b\n", (info>>1)&0xf)
-	// ranks := [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
-	// resultString += "Enpassant Square: " + ranks[info>>5]
-	return resultString
 }
