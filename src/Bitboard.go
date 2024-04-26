@@ -40,6 +40,19 @@ const (
 var ranks [8]Bitboard = [8]Bitboard{Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7}
 var files [8]Bitboard = [8]Bitboard{File0, File1, File2, File3, File4, File5, File6, File7}
 
+func SFS(square string) Square {
+	rank, _ := strconv.Atoi(string(square[1]))
+	rank--
+	fileMap := [8]byte{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'}
+	file := 0
+	for i, r := range fileMap {
+		if square[0] == r {
+			file = i
+		}
+	}
+	return Square(rank*8 + file)
+}
+
 func (s Square) tryStep(step Step) bool { return stepboards[stepMap[step]][s] }
 func (s Square) Step(step Step) Square  { return (s + Square(step)) % 64 }
 

@@ -49,3 +49,7 @@ func (m Move) String() string {
 	result += fmt.Sprintf("Special Move Type: %b", m.SpecialMove())
 	return result
 }
+
+func (m Move) ShortString() string {
+	return m.OriginSquare().String() + " To " + m.DestinationSquare().String()
+}

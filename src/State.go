@@ -148,11 +148,11 @@ func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64
 			s.castleHistory.Push(s.turn+2, s.ply)
 		}
 	} else if startBoardIndex == int(friendIndex)+Rook {
-		if startSquare == Square(7+(8*s.turn)) {
+		if startSquare == Square(7+(8*s.turn)) && s.castleAvailability[s.turn] {
 			s.castleAvailability[s.turn] = false
 			s.castleHistory.Push(s.turn, s.ply)
 		}
-		if startSquare == Square(8*s.turn) {
+		if startSquare == Square(8*s.turn) && s.castleAvailability[s.turn+2] {
 			s.castleAvailability[s.turn+2] = false
 			s.castleHistory.Push(s.turn+2, s.ply)
 		}
@@ -210,8 +210,8 @@ func (s *State) UnMakeMove(move Move) {
 		s.board[friendIndex+Pawn] |= enPassantBoard
 	} else if specialMove == PromotionSpecialMove {
 		*desBoardPtr ^= startBoard
-		friendPawnBoard := &s.board[friendIndex+Pawn]
-		*friendPawnBoard |= startBoard
+		enemyPawnBoard := &s.board[enemyIndex+Pawn]
+		*enemyPawnBoard |= startBoard
 	}
 	enemyKingBoard := s.board[friendIndex+King]
 	enemyBoard := enemyKingBoard | s.board[friendIndex+Queen] | s.board[friendIndex+Rook] | s.board[friendIndex+Bishop] | s.board[friendIndex+Knight] | s.board[friendIndex+Pawn]
@@ -281,10 +281,6 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	checkBlockerSquares := UniversalBitboard
 	if s.check {
 		checkBlockerSquares = GetCheckBlockerSquares(kingSquare, friendBoard, safetyCheckBoard, s.turn)
-		// if checkBlockerSquares != 0 {
-		// 	fmt.Println(s)
-		// 	fmt.Println(checkBlockerSquares)
-		// }
 	}
 	// Start Bishop
 	if checkBlockerSquares != EmptyBitboard {
@@ -426,7 +422,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		rankIndex := s.turn * 56
 		// King Castle Start
 		if s.castleAvailability[s.turn] {
-			if friendBoard&Bitboard(0x60<<rankIndex) == 0 {
+			if occupied&Bitboard(0x60<<rankIndex) == 0 {
 				desSquare := kingSquare + 2
 				if isSquareSafe(Square(5+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
 					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
@@ -436,7 +432,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		// King Castle End
 		// Queen Castle Start
 		if s.castleAvailability[s.turn+2] {
-			if friendBoard&Bitboard(0xE<<rankIndex) == 0 {
+			if occupied&Bitboard(0xE<<rankIndex) == 0 {
 				desSquare := kingSquare - 2
 				if isSquareSafe(Square(3+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
 					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
@@ -682,8 +678,8 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 			}
 		}
 	}
-	pawnCast := pawnAttackBoards[1-turn][square]
-	if pawnCast*enemyBoards.pawnsBoard != 0 {
+	pawnCast := pawnAttackBoards[turn][square]
+	if pawnCast&enemyBoards.pawnsBoard != 0 {
 		for pawnCast != 0 {
 			pawnSquare := PopLSB(&pawnCast)
 			pawnBoard := Bitboard(1 << Bitboard(pawnSquare))
