@@ -51,5 +51,5 @@ func (m Move) String() string {
 }
 
 func (m Move) ShortString() string {
-	return m.OriginSquare().String() + " To " + m.DestinationSquare().String()
+	return m.OriginSquare().String() + m.DestinationSquare().String()
 }

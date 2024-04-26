@@ -10,9 +10,9 @@ func main() {
 	InitializeMoveBoards()
 	// fmt.Println(pawnAttackBoards[Black][23])
 	// fmt.Println("Setup Finished")
-	state := FenState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-	PerftRunner(6, state)
-	// PerftChecker(3, state)
+	state := FenState("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
+	PerftRunner(5, state)
+	//PerftChecker(3, state)
 	// var dC int64 = 0
 	// fmt.Println(state)
 	// state.MakeMove(BuildMove(SFS("g2"), SFS("h1"), QueenPromotion, PromotionSpecialMove), &dC, &dC, &dC)
@@ -69,8 +69,8 @@ func PerftChecker(depth int64, s *State) {
 	for {
 		moves := s.genAllMoves(true)
 		for i, move := range *moves {
-			fmt.Printf("Move %d: ", i)
-			fmt.Println(move.ShortString())
+			fmt.Print(move.ShortString())
+			fmt.Printf(", Move %d: ", i)
 			s.MakeMove(move, &d, &d, &d)
 			var counter int64 = 0
 			Perft(currentDepth-1, &counter, s, &d, &d, &d, &d, (*time.Duration)(&d))
@@ -83,6 +83,7 @@ func PerftChecker(depth int64, s *State) {
 	}
 }
 
+// Boards Complete to Depth 5: 1, 2, 5, 6
 func PerftRunner(depth int64, s *State) {
 	var perftCounter int64 = 0
 	var checkCounter int64 = 0

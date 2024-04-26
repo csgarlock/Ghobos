@@ -422,7 +422,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		rankIndex := s.turn * 56
 		// King Castle Start
 		if s.castleAvailability[s.turn] {
-			if occupied&Bitboard(0x60<<rankIndex) == 0 {
+			if occupied&Bitboard(0x60<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x80<<rankIndex) != 0 {
 				desSquare := kingSquare + 2
 				if isSquareSafe(Square(5+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
 					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
@@ -432,7 +432,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		// King Castle End
 		// Queen Castle Start
 		if s.castleAvailability[s.turn+2] {
-			if occupied&Bitboard(0xE<<rankIndex) == 0 {
+			if occupied&Bitboard(0xE<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x1<<rankIndex) != 0 {
 				desSquare := kingSquare - 2
 				if isSquareSafe(Square(3+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
 					moves = append(moves, BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
