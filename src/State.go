@@ -279,8 +279,9 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	// }
 	safetyCheckBoard := &SafetyCheckBoards{enemyBishopSliders, enemyRookSliders, s.board[enemyIndex+Knight], s.board[enemyIndex+King], s.board[enemyIndex+Pawn], enemyBoard}
 	checkBlockerSquares := UniversalBitboard
+	enPassantCheckBlockerSquares := UniversalBitboard
 	if s.check {
-		checkBlockerSquares = GetCheckBlockerSquares(kingSquare, friendBoard, safetyCheckBoard, s.turn)
+		checkBlockerSquares, enPassantCheckBlockerSquares = s.GetCheckBlockerSquares(kingSquare, friendBoard, safetyCheckBoard, s.turn)
 	}
 	// Start Bishop
 	if checkBlockerSquares != EmptyBitboard {
@@ -359,7 +360,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 					}
 				}
 			}
-			pawnAttacks := pawnAttackBoards[s.turn][pawnSquare] & enemyEnPassantBoard & safeBoard & checkBlockerSquares
+			pawnAttacks := pawnAttackBoards[s.turn][pawnSquare] & enemyEnPassantBoard & safeBoard & (checkBlockerSquares | enPassantCheckBlockerSquares)
 			for pawnAttacks != 0 {
 				attackSquare := popFunction(&pawnAttacks)
 				if attackSquare == s.enPassantSquare {
@@ -582,7 +583,7 @@ func (s *State) EnPassantSafetyCheck(startingSquare Square, desSquare Square, fr
 	return rookCast&enemyRookBoard == 0
 }
 
-func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckBoards, turn uint8) Bitboard {
+func (s *State) GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckBoards, turn uint8) (Bitboard, Bitboard) {
 	occupied := friendBoard | enemyBoards.combinedBoard
 	safeSquares := EmptyBitboard
 	checkFound := false
@@ -611,7 +612,7 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 						safeSquares |= stepSafeSquares
 						checkFound = true
 					} else {
-						return EmptyBitboard
+						return EmptyBitboard, EmptyBitboard
 					}
 				}
 			}
@@ -642,7 +643,7 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 						safeSquares |= stepSafeSquares
 						checkFound = true
 					} else {
-						return EmptyBitboard
+						return EmptyBitboard, EmptyBitboard
 					}
 				}
 			}
@@ -658,7 +659,7 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 					safeSquares |= knightBoard
 					checkFound = true
 				} else {
-					return EmptyBitboard
+					return EmptyBitboard, EmptyBitboard
 				}
 			}
 		}
@@ -673,11 +674,12 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 					safeSquares |= kingBoard
 					checkFound = true
 				} else {
-					return EmptyBitboard
+					return EmptyBitboard, EmptyBitboard
 				}
 			}
 		}
 	}
+	enPassantCheckBlockerSquares := EmptyBitboard
 	pawnCast := pawnAttackBoards[turn][square]
 	if pawnCast&enemyBoards.pawnsBoard != 0 {
 		for pawnCast != 0 {
@@ -685,15 +687,24 @@ func GetCheckBlockerSquares(square Square, friendBoard Bitboard, enemyBoards *Sa
 			pawnBoard := Bitboard(1 << Bitboard(pawnSquare))
 			if enemyBoards.pawnsBoard&pawnBoard != 0 {
 				if !checkFound {
+					if s.canEnpassant {
+						enemyBackStep := UpStep
+						if s.turn == Black {
+							enemyBackStep = DownStep
+						}
+						if pawnSquare.Step(enemyBackStep) == s.enPassantSquare {
+							enPassantCheckBlockerSquares |= Bitboard(1 << Bitboard(pawnSquare.Step(enemyBackStep)))
+						}
+					}
 					safeSquares |= pawnBoard
 					checkFound = true
 				} else {
-					return EmptyBitboard
+					return EmptyBitboard, EmptyBitboard
 				}
 			}
 		}
 	}
-	return safeSquares
+	return safeSquares, enPassantCheckBlockerSquares
 }
 
 func FenState(fenString string) *State {

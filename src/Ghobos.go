@@ -10,9 +10,9 @@ func main() {
 	InitializeMoveBoards()
 	// fmt.Println(pawnAttackBoards[Black][23])
 	// fmt.Println("Setup Finished")
-	state := FenState("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10")
-	PerftRunner(5, state)
-	//PerftChecker(3, state)
+	state := FenState("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ")
+	PerftRunner(6, state)
+	//PerftChecker(5, state)
 	// var dC int64 = 0
 	// fmt.Println(state)
 	// state.MakeMove(BuildMove(SFS("g2"), SFS("h1"), QueenPromotion, PromotionSpecialMove), &dC, &dC, &dC)
@@ -83,7 +83,7 @@ func PerftChecker(depth int64, s *State) {
 	}
 }
 
-// Boards Complete to Depth 5: 1, 2, 5, 6
+// Boards Complete to Depth 5: 1, 2, 3, 5, 6
 func PerftRunner(depth int64, s *State) {
 	var perftCounter int64 = 0
 	var checkCounter int64 = 0
