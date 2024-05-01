@@ -71,6 +71,10 @@ func PopMSB(b *Bitboard) Square {
 	return msb
 }
 
+func BitCount(b Bitboard) int {
+	return int(bits.OnesCount64(uint64(b)))
+}
+
 func NewSubsetIterator(d Bitboard) *SubsetIterator {
 	return &SubsetIterator{n: 0, d: d}
 }

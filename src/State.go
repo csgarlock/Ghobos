@@ -44,7 +44,7 @@ type PinSafety struct {
 	safeSquares Bitboard
 }
 
-func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64, castleCounter *int64) {
+func (s *State) MakeMove(move Move) {
 	var friendIndex uint8 = s.turn * 6
 	var enemyIndex uint8 = (1 - s.turn) * 6
 	startSquare := move.OriginSquare()
@@ -77,7 +77,6 @@ func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64
 	}
 	specialMove := move.SpecialMove()
 	if specialMove == CastleSpecialMove {
-		*castleCounter++
 		rankIndex := Square(s.turn * 56)
 		rookSquare := Square(5 + rankIndex)
 		startingRookSquare := Square(7 + rankIndex)
@@ -105,7 +104,6 @@ func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64
 		*promotionBoard |= desBoard
 		*startBoardPtr ^= desBoard
 	} else if specialMove == EnPassantSpacialMove {
-		*enPassantCounter++
 		enemyPawnBoard := &s.board[enemyIndex+Pawn]
 		relativeDownStep := DownStep
 		if s.turn == Black {
@@ -159,10 +157,6 @@ func (s *State) MakeMove(move Move, checkCounter *int64, enPassantCounter *int64
 	}
 	s.turn = 1 - s.turn
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
-	if s.check {
-		*checkCounter++
-		// fmt.Println(s)
-	}
 	s.ply++
 }
 
