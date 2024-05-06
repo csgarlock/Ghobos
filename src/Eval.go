@@ -21,3 +21,11 @@ func normalizeEval(rawEval int32) float64 {
 	centiEval := rawEval / CentiPawn
 	return float64(centiEval) / 100.0
 }
+
+func EvalHighToLow(eval int32) int16 {
+	return int16(eval / CentiPawn)
+}
+
+func EvalLowToHigh(eval int16) int32 {
+	return int32(eval) * CentiPawn
+}
