@@ -1,5 +1,17 @@
 package main
 
+const (
+	CentiPawn   int32 = 32768 // 2 ^ 15
+	PawnValue   int32 = CentiPawn * 100
+	BishopValue int32 = PawnValue * 3
+	KnightValue int32 = PawnValue * 3
+	RookValue   int32 = PawnValue * 5
+	QueenValue  int32 = PawnValue * 9
+	KingValue   int32 = 0
+)
+
+var valueTable [6]int32 = [6]int32{KingValue, QueenValue, RookValue, BishopValue, KnightValue, PawnValue}
+
 func (s *State) EvalState(perspective uint8) int32 {
 	var eval int32 = 0
 	for i := 0; i < 6; i++ {
@@ -14,10 +26,10 @@ func (s *State) EvalState(perspective uint8) int32 {
 
 func (s *State) NormalizedEval(perspective uint8) float64 {
 	rawEval := s.EvalState(perspective)
-	return normalizeEval(rawEval)
+	return NormalizeEval(rawEval)
 }
 
-func normalizeEval(rawEval int32) float64 {
+func NormalizeEval(rawEval int32) float64 {
 	centiEval := rawEval / CentiPawn
 	return float64(centiEval) / 100.0
 }

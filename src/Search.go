@@ -23,7 +23,7 @@ func (s *State) getBestMove(depth int32, nodesSearched *int32) Move {
 			bestMove = move
 			alpha = moveEval
 		}
-		fmt.Printf("Move %d: %v Searched\nScore: %.2f\nRemaining: %d\n", i, move.ShortString(), normalizeEval(moveEval), len(*moves)-i-1)
+		fmt.Printf("Move %d: %v Searched\nScore: %.2f\nRemaining: %d\n", i, move.ShortString(), NormalizeEval(moveEval), len(*moves)-i-1)
 	}
 	return bestMove
 }

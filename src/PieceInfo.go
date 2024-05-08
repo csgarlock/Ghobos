@@ -41,14 +41,6 @@ const (
 	BlackBishop = 9
 	BlackKnight = 10
 	BlackPawn   = 11
-
-	CentiPawn   int32 = 32768 // 2 ^ 15
-	PawnValue   int32 = CentiPawn * 100
-	BishopValue int32 = PawnValue * 3
-	KnightValue int32 = PawnValue * 3
-	RookValue   int32 = PawnValue * 5
-	QueenValue  int32 = PawnValue * 9
-	KingValue   int32 = 0
 )
 
 var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2, UpLeftStep: 3, LeftStep: 4, DownLeftStep: 5, DownStep: 6, DownRightStep: 7, KnightStepRightUp: 8, KnightStepUpRight: 9, KnightStepUpLeft: 10, KnightStepLeftUp: 11, KnightStepLeftDown: 12, KnightStepDownLeft: 13, KnightStepDownRight: 14, KnightStepRightDown: 15}
@@ -65,8 +57,6 @@ var stepboards [16][64]bool = [16][64]bool{}
 
 var moveBoards [5][64]Bitboard = [5][64]Bitboard{}
 var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
-
-var valueTable [6]int32 = [6]int32{KingValue, QueenValue, RookValue, BishopValue, KnightValue, PawnValue}
 
 func InitializeMoveBoards() {
 	InitializeStepBoard()
