@@ -7,15 +7,17 @@ import (
 )
 
 func main() {
-	InitializeMoveBoards()
-	SetupTable(1024)
-	state := StartingFen()
-	var nodesSearched int32 = 0
-	start := time.Now()
-	bestMove := state.getBestMove(5, &nodesSearched)
-	fmt.Println(time.Since(start))
-	fmt.Println(bestMove)
-	fmt.Println(nodesSearched)
+	fmt.Println(EvalHighToLow(CentiPawn))
+	fmt.Println(NormalizeEval(LowestEval))
+	// InitializeMoveBoards()
+	// SetupTable(1024)
+	// state := StartingFen()
+	// var nodesSearched int32 = 0
+	// start := time.Now()
+	// bestMove := state.getBestMove(5, &nodesSearched)
+	// fmt.Println(time.Since(start))
+	// fmt.Println(bestMove)
+	// fmt.Println(nodesSearched)
 }
 
 func PerftChecker(depth int64, s *State) {

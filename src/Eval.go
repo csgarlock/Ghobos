@@ -1,7 +1,9 @@
 package main
 
+import "fmt"
+
 const (
-	CentiPawn   int32 = 32768 // 2 ^ 15
+	CentiPawn   int32 = 65536
 	PawnValue   int32 = CentiPawn * 100
 	BishopValue int32 = PawnValue * 3
 	KnightValue int32 = PawnValue * 3
@@ -31,6 +33,7 @@ func (s *State) NormalizedEval(perspective uint8) float64 {
 
 func NormalizeEval(rawEval int32) float64 {
 	centiEval := rawEval / CentiPawn
+	fmt.Println(centiEval)
 	return float64(centiEval) / 100.0
 }
 

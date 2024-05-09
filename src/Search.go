@@ -3,8 +3,8 @@ package main
 import "fmt"
 
 const (
-	LowestEval  int32 = -2147483647
-	highestEval int32 = 2147483647
+	LowestEval  int32 = -2147483646 + CentiPawn - 2 // The lowest 32 bit value such that the 16 least significant bits are all 0
+	highestEval int32 = 2147483646 - CentiPawn + 2  // The largest 32 bit value such that the 16 least significant bits are all 0
 )
 
 var startingDepth int32 = 0
