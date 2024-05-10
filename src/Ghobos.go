@@ -7,17 +7,17 @@ import (
 )
 
 func main() {
-	fmt.Println(EvalHighToLow(CentiPawn))
-	fmt.Println(NormalizeEval(LowestEval))
-	// InitializeMoveBoards()
-	// SetupTable(1024)
-	// state := StartingFen()
-	// var nodesSearched int32 = 0
-	// start := time.Now()
-	// bestMove := state.getBestMove(5, &nodesSearched)
-	// fmt.Println(time.Since(start))
-	// fmt.Println(bestMove)
-	// fmt.Println(nodesSearched)
+	InitializeMoveBoards()
+	InitializeEvalVariables()
+	SetupTable(1024)
+	state := FenState("1Nk5/3R4/4R3/3P4/2p5/2P4p/5PPP/6K1 w - - 2 40")
+	state.check = false
+	var nodesSearched int32 = 0
+	start := time.Now()
+	bestMove := state.getBestMove(5, &nodesSearched)
+	fmt.Println(time.Since(start))
+	fmt.Println(bestMove)
+	fmt.Println(nodesSearched)
 }
 
 func PerftChecker(depth int64, s *State) {
