@@ -266,11 +266,6 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	enemyBishopSliders := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
 	enemyRookSliders := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
 	pinnedBoard, pinSafetys := getKingPins(kingSquare, friendBoard, enemyBishopSliders, enemyRookSliders, enemyBoard)
-	// fmt.Println(pinnedBoard)
-	// for _, pinSafe := range *pinSafetys {
-	// 	fmt.Println(pinSafe.key)
-	// 	fmt.Println(pinSafe.safeSquares)
-	// }
 	safetyCheckBoard := &SafetyCheckBoards{enemyBishopSliders, enemyRookSliders, s.board[enemyIndex+Knight], s.board[enemyIndex+King], s.board[enemyIndex+Pawn], enemyBoard}
 	checkBlockerSquares := UniversalBitboard
 	enPassantCheckBlockerSquares := UniversalBitboard

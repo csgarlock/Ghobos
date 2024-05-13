@@ -9,8 +9,8 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(1024)
-	state := FenState("1Nk5/3R4/4R3/3P4/2p5/2P4p/5PPP/6K1 w - - 2 40")
+	SetupTable(2048)
+	state := FenState("1NQ1n3/p1N2ppr/1k6/2b4b/5B1p/7P/PPP2PP1/R4RK1 w - - 5 23")
 	state.check = false
 	var nodesSearched int32 = 0
 	start := time.Now()
@@ -18,6 +18,10 @@ func main() {
 	fmt.Println(time.Since(start))
 	fmt.Println(bestMove)
 	fmt.Println(nodesSearched)
+}
+
+func UIGame() {
+
 }
 
 func PerftChecker(depth int64, s *State) {
