@@ -10,11 +10,11 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	SetupTable(2048)
-	state := FenState("1NQ1n3/p1N2ppr/1k6/2b4b/5B1p/7P/PPP2PP1/R4RK1 w - - 5 23")
+	state := FenState("6Q1/8/8/4p2k/1p6/3RK3/P4P2/6R1 w - - 2 48")
 	state.check = false
 	var nodesSearched int32 = 0
 	start := time.Now()
-	bestMove := state.getBestMove(5, &nodesSearched)
+	bestMove := state.getBestMove(7, &nodesSearched)
 	fmt.Println(time.Since(start))
 	fmt.Println(bestMove)
 	fmt.Println(nodesSearched)
