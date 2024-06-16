@@ -9,8 +9,9 @@ import "fmt"
 type Move uint16
 
 const (
-	BitMask6 uint16 = 0x3f
-	BitMask2 uint16 = 0x3
+	BitMask12 uint16 = 0xfff
+	BitMask6  uint16 = 0x3f
+	BitMask2  uint16 = 0x3
 
 	CastleSpecialMove    = 1
 	PromotionSpecialMove = 2
@@ -40,6 +41,10 @@ func (m Move) SpecialMove() uint16 {
 
 func BuildMove(origin Square, destination Square, promotion uint16, specialMove uint16) Move {
 	return Move(origin) | (Move(destination) << 6) | (Move(promotion) << 12) | (Move(specialMove) << 14)
+}
+
+func sameSourceDes(move1 Move, move2 Move) bool {
+	return (move1 & Move(BitMask12)) == (move2 & Move(BitMask12))
 }
 
 func (m Move) String() string {

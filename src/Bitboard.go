@@ -53,6 +53,10 @@ func SFS(square string) Square {
 	return Square(rank*8 + file)
 }
 
+func sFromRankFile(file int, rank int) Square {
+	return Square(rank*8 + file)
+}
+
 func (s Square) tryStep(step Step) bool { return stepboards[stepMap[step]][s] }
 func (s Square) Step(step Step) Square  { return (s + Square(step)) % 64 }
 

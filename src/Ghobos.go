@@ -3,25 +3,96 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(2048)
-	state := FenState("6Q1/8/8/4p2k/1p6/3RK3/P4P2/6R1 w - - 2 48")
-	state.check = false
-	var nodesSearched int32 = 0
-	start := time.Now()
-	bestMove := state.getBestMove(7, &nodesSearched)
-	fmt.Println(time.Since(start))
-	fmt.Println(bestMove)
-	fmt.Println(nodesSearched)
+	SetupTable(512)
+	UIGame()
+	// state := FenState("5Q2/3kN3/8/2B3p1/p7/8/PPP2PPP/R3R1K1 w - - 0 28")
+	// state.check = false
+	// var nodesSearched int32 = 0
+	// start := time.Now()
+	// bestMove := state.getBestMove(3, &nodesSearched)
+	// fmt.Println(time.Since(start))
+	// fmt.Println(bestMove)
+	// fmt.Println(nodesSearched)
 }
 
 func UIGame() {
-
+	var playerSide uint8
+	for {
+		fmt.Print("What Color do you want (white/black): ")
+		var colorInput string
+		_, err := fmt.Scanln(&colorInput)
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			continue
+		}
+		colorInput = strings.ToLower(colorInput)
+		if colorInput == "white" || colorInput == "w" {
+			playerSide = White
+			break
+		} else if colorInput == "black" || colorInput == "b" {
+			playerSide = Black
+			break
+		}
+	}
+	gameState := StartingFen()
+	gameOver := false
+	playerTurn := true
+	if playerSide == Black {
+		playerTurn = true
+	}
+	for !gameOver {
+		fmt.Println(gameState)
+		if playerTurn {
+			for {
+				playerMove := getUserMove()
+				fmt.Println(playerMove)
+				validMoves := gameState.genAllMoves(true)
+				found := false
+				var foundMove Move
+				for _, move := range *validMoves {
+					if sameSourceDes(playerMove, Move(move)) {
+						found = true
+						foundMove = move
+					}
+				}
+				if found {
+					if foundMove.SpecialMove() == PromotionSpecialMove {
+						for {
+							fmt.Print("What piece do you want to promote to (queen/rook/bishop/knight): ")
+							var promotionString string
+							_, err := fmt.Scanln(&promotionString)
+							if err != nil {
+								fmt.Println("Error reading input: ", err)
+								continue
+							}
+							promotionMap := map[string]int{"queen": QueenPromotion, "rook": RookPromotion, "bishop": BishopPromotion, "knight": KnightPromotion}
+							promotion, ok := promotionMap[promotionString]
+							if !ok {
+								fmt.Println("Invalid promotion")
+							}
+							foundMove = foundMove | (1 << promotion)
+						}
+					}
+					gameState.MakeMove(foundMove)
+					break
+				} else {
+					fmt.Println("Invalid Move")
+				}
+			}
+		} else {
+			var nodesSeached int32
+			bestMove := gameState.getBestMove(3, &nodesSeached)
+			gameState.MakeMove(bestMove)
+		}
+		playerTurn = !playerTurn
+	}
 }
 
 func PerftChecker(depth int64, s *State) {
@@ -93,6 +164,39 @@ func Perft(depth int64, moveCounter *int64, s *State, checkCounter *int64, mateC
 	}
 }
 
+func getUserMove() Move {
+	fileMap := map[rune]int{'a': 0, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 7}
+	for {
+		var moveInput string
+		fmt.Print("Please enter your move enter in the format source square destination square (eg e2e4): ")
+		_, err := fmt.Scanln(&moveInput)
+		if err != nil {
+			fmt.Println("Error reading unput: ", err)
+			continue
+		}
+		if len(moveInput) != 4 {
+			fmt.Println("Invalid Move (Bad Format)")
+			continue
+		}
+		sourceFileRune := moveInput[0]
+		sourceRankRune := moveInput[1]
+		desFileRune := moveInput[2]
+		desRankRune := moveInput[3]
+		sourceFile, sourceFileOk := fileMap[rune(sourceFileRune)]
+		sourceRank, sourceRankErr := strconv.Atoi(string(sourceRankRune))
+		sourceRank -= 1
+		desFile, desFileOk := fileMap[rune(desFileRune)]
+		desRank, desRankErr := strconv.Atoi(string(desRankRune))
+		desRank -= 1
+		if !sourceFileOk || sourceRankErr != nil || !desFileOk || desRankErr != nil {
+			fmt.Println("Invalid Move (Bad Format)")
+			continue
+		}
+		playerMove := BuildMove(sFromRankFile(sourceFile, sourceRank), sFromRankFile(desFile, desRank), 0, 0)
+		return playerMove
+	}
+}
+
 func GetUserNumber(prompt string) int {
 	for {
 		var userInput string
@@ -104,7 +208,6 @@ func GetUserNumber(prompt string) int {
 			fmt.Println("Error reading input:", err)
 			continue
 		}
-
 		num, err = strconv.Atoi(userInput)
 		if err != nil {
 			fmt.Println("Error converting to integer:", err)
