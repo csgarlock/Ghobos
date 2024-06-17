@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 const (
 	LowestEval  int32 = -2147483646 + CentiPawn - 2 // The lowest 32 bit value such that the 16 least significant bits are all 0
@@ -9,15 +12,38 @@ const (
 
 var startingDepth int32 = 0
 
+func (s *State) IterativeDeepiningSearch(maxTime time.Duration, nodesSearched *int32) Move {
+	startTime := time.Now()
+	var bestFoundMove Move = 0
+	var currentDepth int32 = 1
+	for time.Since(startTime) < maxTime {
+		bestFoundMove = s.getBestMove(currentDepth, nodesSearched)
+		currentDepth += 1
+	}
+	return bestFoundMove
+}
+
 func (s *State) getBestMove(depth int32, nodesSearched *int32) Move {
 	startingDepth = depth
 	*nodesSearched++
 	moves := s.genAllMoves(true)
+	result, found := transpositionTable.SearchState(s)
+	// Swap the best best move from the tt with the first move
+	if found {
+		ttBestMove := result.bestMove
+		for i := range *moves {
+			if (*moves)[i] == ttBestMove {
+				firstMove := (*moves)[0]
+				(*moves)[0] = (*moves)[i]
+				(*moves)[i] = firstMove
+			}
+		}
+	}
 	bestMove := (*moves)[0]
 	alpha := LowestEval
 	for i, move := range *moves {
 		s.MakeMove(move)
-		moveEval := -s.NegaMax(depth-1, LowestEval, highestEval, nodesSearched)
+		moveEval := -s.NegaMax(depth-1, LowestEval, -alpha, nodesSearched)
 		s.UnMakeMove(move)
 		if moveEval > alpha {
 			bestMove = move
@@ -70,6 +96,17 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 		} else {
 			transpositionTable.AddState(s, 0, 0, uint16(startingDepth)-uint16(depth), TerminalNode)
 			return 0
+		}
+	}
+	// Swap the best best move from the tt with the first move
+	if found {
+		ttBestMove := result.bestMove
+		for i := range *moves {
+			if (*moves)[i] == ttBestMove {
+				firstMove := (*moves)[0]
+				(*moves)[0] = (*moves)[i]
+				(*moves)[i] = firstMove
+			}
 		}
 	}
 	allNode := true

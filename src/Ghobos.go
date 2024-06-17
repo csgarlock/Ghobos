@@ -88,7 +88,7 @@ func UIGame() {
 			}
 		} else {
 			var nodesSeached int32
-			bestMove := gameState.getBestMove(3, &nodesSeached)
+			bestMove := gameState.getBestMove(7, &nodesSeached)
 			gameState.MakeMove(bestMove)
 		}
 		playerTurn = !playerTurn
