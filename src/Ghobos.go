@@ -45,7 +45,7 @@ func UIGame() {
 	gameOver := false
 	playerTurn := true
 	if playerSide == Black {
-		playerTurn = true
+		playerTurn = false
 	}
 	for !gameOver {
 		fmt.Println(gameState)
