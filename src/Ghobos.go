@@ -10,7 +10,7 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(512)
+	SetupTable(2048)
 	UIGame()
 	// state := FenState("5Q2/3kN3/8/2B3p1/p7/8/PPP2PPP/R3R1K1 w - - 0 28")
 	// state.check = false
@@ -47,6 +47,7 @@ func UIGame() {
 	if playerSide == Black {
 		playerTurn = false
 	}
+	var searchDepth int32 = 7
 	for !gameOver {
 		fmt.Println(gameState)
 		if playerTurn {
@@ -87,8 +88,9 @@ func UIGame() {
 				}
 			}
 		} else {
+			searchDepth = int32(GetUserNumber("What depth should be searched?: "))
 			var nodesSeached int32
-			bestMove := gameState.getBestMove(7, &nodesSeached)
+			bestMove := gameState.getBestMove(searchDepth, &nodesSeached)
 			gameState.MakeMove(bestMove)
 		}
 		playerTurn = !playerTurn
