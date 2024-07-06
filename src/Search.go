@@ -98,7 +98,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 			return 0
 		}
 	}
-	// Swap the best best move from the tt with the first move
+	// Swap the best move from the tt with the first move
 	if found {
 		ttBestMove := result.bestMove
 		for i := range *moves {

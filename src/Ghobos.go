@@ -10,7 +10,7 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(2048)
+	SetupTable(2024)
 	UIGame()
 	// state := FenState("5Q2/3kN3/8/2B3p1/p7/8/PPP2PPP/R3R1K1 w - - 0 28")
 	// state.check = false
@@ -77,8 +77,10 @@ func UIGame() {
 							promotion, ok := promotionMap[promotionString]
 							if !ok {
 								fmt.Println("Invalid promotion")
+							} else {
+								foundMove = foundMove | (1 << promotion)
+								break
 							}
-							foundMove = foundMove | (1 << promotion)
 						}
 					}
 					gameState.MakeMove(foundMove)
