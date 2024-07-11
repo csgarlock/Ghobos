@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 const (
 	CentiPawn   int32 = 65536
 	PawnValue   int32 = CentiPawn * 100
@@ -8,6 +10,12 @@ const (
 	RookValue   int32 = CentiPawn * 500
 	QueenValue  int32 = CentiPawn * 900
 	KingValue   int32 = 0
+
+	DoublePawnValue   int32 = CentiPawn * -25
+	PassedPawnValue   int32 = CentiPawn * 50
+	IsolatedPawnValue int32 = CentiPawn * -25
+
+	OpenFileRookValue int32 = CentiPawn * 10
 
 	PawnPhaseValue   int8 = 0
 	BishopPhaseValue int8 = 1
@@ -51,9 +59,131 @@ func (s *State) EvalState(perspective uint8) int32 {
 			egPieceSquareTableEval -= endgamePieceSquareTable[i+6][square]
 		}
 	}
+	// Adjust piece square values based off of phase of the game
 	mgPhaseValue := min(phaseValue, TotalPhaseValue)
 	egPhaseValue := TotalPhaseValue - mgPhaseValue
 	eval += (mgPieceSquareTableEval*int32(mgPhaseValue) + egPieceSquareTableEval*int32(egPhaseValue)) / int32(TotalPhaseValue)
+
+	// Pawn Eval
+	whitePawns := s.board[WhitePawn]
+	shallowestWhiteNeighbor := [8]int8{7, 7, 7, 7, 7, 7, 7, 7}
+	neighboringWhitePawns := [8]int8{}
+	whiteFileCount := [8]uint8{}
+	blackPawns := s.board[BlackPawn]
+	shallowestBlackNeighbor := [8]int8{0, 0, 0, 0, 0, 0, 0, 0}
+	neighboringBlackPawns := [8]int8{}
+	blackFileCount := [8]uint8{}
+	openFiles := [8]bool{true, true, true, true, true, true, true, true}
+	for whitePawns != 0 {
+		square := PopLSB(&whitePawns)
+		file := square.File()
+		whiteFileCount[file]++
+		openFiles[file] = false
+		rank := square.Rank()
+		if rank < shallowestWhiteNeighbor[file] {
+			shallowestWhiteNeighbor[file] = rank
+		}
+		if file != 0 {
+			neighboringWhitePawns[file-1]++
+			if rank < shallowestWhiteNeighbor[file-1] {
+				shallowestWhiteNeighbor[file-1] = rank
+			}
+		}
+		if file != 7 {
+			neighboringWhitePawns[file+1]++
+			if rank < shallowestWhiteNeighbor[file+1] {
+				shallowestWhiteNeighbor[file+1] = rank
+			}
+		}
+	}
+	for blackPawns != 0 {
+		square := PopLSB(&blackPawns)
+		file := square.File()
+		blackFileCount[file]++
+		openFiles[file] = false
+		rank := square.Rank()
+		if rank > shallowestBlackNeighbor[file] {
+			shallowestBlackNeighbor[file] = rank
+		}
+		if file != 0 {
+			neighboringBlackPawns[file-1]++
+			if rank > shallowestBlackNeighbor[file-1] {
+				shallowestBlackNeighbor[file-1] = rank
+			}
+		}
+		if file != 7 {
+			neighboringBlackPawns[file+1]++
+			if rank > shallowestBlackNeighbor[file+1] {
+				shallowestBlackNeighbor[file+1] = rank
+			}
+		}
+	}
+	whitePawns = s.board[WhitePawn]
+	whiteDoubled := 0
+	whiteIsolated := 0
+	whitePassed := 0
+	blackDoubled := 0
+	blackIsolated := 0
+	blackPassed := 0
+	blackPawns = s.board[BlackPawn]
+	for whitePawns != 0 {
+		square := PopLSB(&whitePawns)
+		file := square.File()
+		rank := square.Rank()
+		if whiteFileCount[file] > 1 {
+			eval += DoublePawnValue
+			whiteDoubled++
+		}
+		if neighboringWhitePawns[file] == 0 {
+			eval += IsolatedPawnValue
+			whiteIsolated++
+		}
+		if (neighboringBlackPawns[file] == 0 && blackFileCount[file] == 0) || rank >= shallowestBlackNeighbor[file] {
+			eval += DoublePawnValue
+			whitePassed++
+		}
+	}
+	for blackPawns != 0 {
+		square := PopLSB(&blackPawns)
+		file := square.File()
+		rank := square.Rank()
+		if blackFileCount[file] > 1 {
+			eval -= DoublePawnValue
+			blackDoubled++
+		}
+		if neighboringBlackPawns[file] == 0 {
+			eval -= IsolatedPawnValue
+			blackIsolated++
+		}
+		if (neighboringWhitePawns[file] == 0 && whiteFileCount[file] == 0) || rank <= shallowestWhiteNeighbor[file] {
+			eval -= DoublePawnValue
+			blackPassed++
+		}
+	}
+	fmt.Println(whiteDoubled)
+	fmt.Println(whiteIsolated)
+	fmt.Println(whitePassed)
+	fmt.Println(blackDoubled)
+	fmt.Println(blackIsolated)
+	fmt.Println(blackPassed)
+
+	// Open File Rook Bonus
+	whiteRooks := s.board[WhiteRook]
+	blackRooks := s.board[BlackRook]
+	for whiteRooks != 0 {
+		square := PopLSB(&whiteRooks)
+		file := square.File()
+		if openFiles[file] {
+			eval += OpenFileRookValue
+		}
+	}
+	for blackRooks != 0 {
+		square := PopLSB(&whiteRooks)
+		file := square.File()
+		if openFiles[file] {
+			eval -= OpenFileRookValue
+		}
+	}
 	if perspective == White {
 		return eval
 	}
