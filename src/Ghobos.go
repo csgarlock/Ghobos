@@ -11,7 +11,7 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	SetupTable(2024)
-	//UIGame()
+	UIGame()
 	// state := FenState("5Q2/3kN3/8/2B3p1/p7/8/PPP2PPP/R3R1K1 w - - 0 28")
 	// state.check = false
 	// var nodesSearched int32 = 0

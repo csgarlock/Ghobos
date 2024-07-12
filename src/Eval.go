@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 const (
 	CentiPawn   int32 = 65536
 	PawnValue   int32 = CentiPawn * 100
@@ -160,12 +158,6 @@ func (s *State) EvalState(perspective uint8) int32 {
 			blackPassed++
 		}
 	}
-	fmt.Println(whiteDoubled)
-	fmt.Println(whiteIsolated)
-	fmt.Println(whitePassed)
-	fmt.Println(blackDoubled)
-	fmt.Println(blackIsolated)
-	fmt.Println(blackPassed)
 
 	// Open File Rook Bonus
 	whiteRooks := s.board[WhiteRook]
@@ -178,7 +170,7 @@ func (s *State) EvalState(perspective uint8) int32 {
 		}
 	}
 	for blackRooks != 0 {
-		square := PopLSB(&whiteRooks)
+		square := PopLSB(&blackRooks)
 		file := square.File()
 		if openFiles[file] {
 			eval -= OpenFileRookValue
