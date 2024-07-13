@@ -47,7 +47,6 @@ func UIGame() {
 	if playerSide == Black {
 		playerTurn = false
 	}
-	var searchDepth int32 = 7
 	for !gameOver {
 		fmt.Println(gameState)
 		if playerTurn {
@@ -90,9 +89,9 @@ func UIGame() {
 				}
 			}
 		} else {
-			searchDepth = int32(GetUserNumber("What depth should be searched?: "))
+			searchTime := int32(GetUserNumber("How long would you like to search (in seconds)?: "))
 			var nodesSeached int32
-			bestMove := gameState.getBestMove(searchDepth, &nodesSeached)
+			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime)*time.Second, &nodesSeached)
 			gameState.MakeMove(bestMove)
 		}
 		playerTurn = !playerTurn

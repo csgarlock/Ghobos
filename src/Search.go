@@ -6,24 +6,79 @@ import (
 )
 
 const (
+	min32 int32 = -2147483646
+	max32 int32 = 2147483647
+
 	LowestEval  int32 = -2147483646 + CentiPawn - 2 // The lowest 32 bit value such that the 16 least significant bits are all 0
 	highestEval int32 = 2147483646 - CentiPawn + 2  // The largest 32 bit value such that the 16 least significant bits are all 0
+
+	startingEval int32 = CentiPawn * 30
+
+	startingAsperationWindowOffset int32 = CentiPawn * 20
+
+	asperationMateSearchCutoff int32 = CentiPawn * 2000
 )
 
 var startingDepth int32 = 0
 
+var lastMoveScore int32 = startingEval
+
 func (s *State) IterativeDeepiningSearch(maxTime time.Duration, nodesSearched *int32) Move {
 	startTime := time.Now()
+	result, found := transpositionTable.SearchState(s)
+	var stateEvalGuess int32
+	if found {
+		stateEvalGuess = EvalLowToHigh(result.eval)
+	} else {
+		stateEvalGuess = lastMoveScore
+	}
+	var aspirationWindowLow int32 = stateEvalGuess - startingAsperationWindowOffset
+	var aspirationWindowHigh int32 = stateEvalGuess + startingAsperationWindowOffset
+	var aspirationDelta int32 = startingAsperationWindowOffset
 	var bestFoundMove Move = 0
 	var currentDepth int32 = 1
+	var contendingMove Move
+	stateScore := stateEvalGuess
 	for time.Since(startTime) < maxTime {
-		bestFoundMove = s.getBestMove(currentDepth, nodesSearched)
-		currentDepth += 1
+		fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
+		contendingMove, stateScore = s.getBestMove(currentDepth, nodesSearched, aspirationWindowLow, aspirationWindowHigh)
+		// Check if returned score was at bounds of aspiration window
+		if stateScore == aspirationWindowLow {
+			fmt.Println("Searched Failed Low")
+			aspirationWindowHigh -= aspirationDelta / 2
+			if aspirationWindowLow <= -asperationMateSearchCutoff {
+				aspirationWindowLow = min32
+			} else {
+				aspirationWindowLow -= aspirationDelta
+				aspirationDelta *= 2
+			}
+		} else if stateScore == aspirationWindowHigh {
+			fmt.Println("Searched Failed High")
+			aspirationWindowLow += aspirationDelta / 2
+			if aspirationWindowHigh >= asperationMateSearchCutoff {
+				aspirationWindowHigh = max32
+			} else {
+				aspirationWindowHigh += aspirationDelta
+				aspirationDelta *= 2
+			}
+		} else {
+			fmt.Println("Searched Succeeded")
+			bestFoundMove = contendingMove
+			lastMoveScore = stateScore
+			if currentDepth >= 5 {
+				aspirationDelta = startingAsperationWindowOffset / 2
+			} else {
+				aspirationDelta = startingAsperationWindowOffset
+			}
+			aspirationWindowLow = stateScore - aspirationDelta
+			aspirationWindowHigh = stateScore + aspirationDelta
+			currentDepth += 1
+		}
 	}
 	return bestFoundMove
 }
 
-func (s *State) getBestMove(depth int32, nodesSearched *int32) Move {
+func (s *State) getBestMove(depth int32, nodesSearched *int32, aspirationLow int32, aspirationHigh int32) (Move, int32) {
 	startingDepth = depth
 	*nodesSearched++
 	moves := s.genAllMoves(true)
@@ -40,19 +95,19 @@ func (s *State) getBestMove(depth int32, nodesSearched *int32) Move {
 		}
 	}
 	bestMove := (*moves)[0]
-	alpha := LowestEval
-	for i, move := range *moves {
+	alpha := aspirationLow
+	for _, move := range *moves {
 		s.MakeMove(move)
-		moveEval := -s.NegaMax(depth-1, LowestEval, -alpha, nodesSearched)
+		moveEval := -s.NegaMax(depth-1, -aspirationHigh, -alpha, nodesSearched)
 		s.UnMakeMove(move)
 		if moveEval > alpha {
 			bestMove = move
 			alpha = moveEval
 		}
-		fmt.Printf("Move %d: %v Searched\nScore: %.2f\nRemaining: %d\n", i, move.ShortString(), NormalizeEval(moveEval), len(*moves)-i-1)
+		//fmt.Printf("Move %d: %v Searched\nScore: %.2f\nRemaining: %d\n", i, move.ShortString(), NormalizeEval(moveEval), len(*moves)-i-1)
 	}
-	fmt.Println("Best Move:", bestMove.ShortString())
-	return bestMove
+	fmt.Println("Searched to Depth:", depth, ", Best Move:", bestMove.ShortString(), " Value:", NormalizeEval(alpha))
+	return bestMove, alpha
 }
 
 func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int32) int32 {
@@ -60,29 +115,31 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 	result, found := transpositionTable.SearchState(s)
 	if found {
 		ttEval := EvalLowToHigh(result.eval)
-		ttdepth, ttNodeType := result.depthAndNode.parseDepthandNode()
+		_, ttNodeType := result.depthAndNode.parseDepthandNode()
 		if ttNodeType == TerminalNode {
 			return ttEval
 		}
-		if ttdepth >= uint16(depth) {
-			if ttNodeType == pVNode {
-				if ttEval < alpha {
-					return alpha
-				} else if ttEval >= beta {
-					return beta
-				} else {
-					return ttEval
-				}
-			} else if ttNodeType == CutNode {
-				if ttEval >= beta {
-					return beta
-				}
-			} else if ttNodeType == AllNode {
-				if ttEval <= alpha {
-					return alpha
+		/*
+			if ttdepth >= uint16(depth) {
+				if ttNodeType == pVNode {
+					if ttEval < alpha {
+						return alpha
+					} else if ttEval >= beta {
+						return beta
+					} else {
+						return ttEval
+					}
+				} else if ttNodeType == CutNode {
+					if ttEval >= beta {
+						return beta
+					}
+				} else if ttNodeType == AllNode {
+					if ttEval <= alpha {
+						return alpha
+					}
 				}
 			}
-		}
+		*/
 	}
 	if depth == 0 {
 		return s.QuiescenceSearch(alpha, beta, nodesSearched)
