@@ -4,11 +4,13 @@ import "fmt"
 
 // 0 - 5 origin square
 // 6 - 11 destination square
-// 12 - 13 Promotion type (0 - Queen, 1 - Rook, 2 Knight, 3 - Bishop)
+// 12 - 13 Promotion type (0 - Queen, 1 - Rook, 2 - Knight, 3 - Bishop)
 // 14 - 16 Special Move Type (0 - None, 1 - Castle, 2 - Promotion, 3 - En Passant)
 type Move uint16
 
 const (
+	NilMove Move = 0xffff
+
 	BitMask12 uint16 = 0xfff
 	BitMask6  uint16 = 0x3f
 	BitMask2  uint16 = 0x3

@@ -14,7 +14,7 @@ const (
 
 	startingEval int32 = CentiPawn * 30
 
-	startingAsperationWindowOffset int32 = CentiPawn * 20
+	startingAsperationWindowOffset int32 = CentiPawn * 10
 
 	asperationMateSearchCutoff int32 = CentiPawn * 2000
 )
@@ -75,6 +75,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, nodesSearched *i
 			currentDepth += 1
 		}
 	}
+	fmt.Println("Excpected Moves: ", s.getPV())
 	return bestFoundMove
 }
 
@@ -96,6 +97,7 @@ func (s *State) getBestMove(depth int32, nodesSearched *int32, aspirationLow int
 	}
 	bestMove := (*moves)[0]
 	alpha := aspirationLow
+	startCheck := s.check
 	for _, move := range *moves {
 		s.MakeMove(move)
 		moveEval := -s.NegaMax(depth-1, -aspirationHigh, -alpha, nodesSearched)
@@ -106,6 +108,7 @@ func (s *State) getBestMove(depth int32, nodesSearched *int32, aspirationLow int
 		}
 		//fmt.Printf("Move %d: %v Searched\nScore: %.2f\nRemaining: %d\n", i, move.ShortString(), NormalizeEval(moveEval), len(*moves)-i-1)
 	}
+	s.check = startCheck
 	fmt.Println("Searched to Depth:", depth, ", Best Move:", bestMove.ShortString(), " Value:", NormalizeEval(alpha))
 	return bestMove, alpha
 }
@@ -148,10 +151,10 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 	if len(*moves) == 0 {
 		if s.check {
 			eval := LowestEval + (((startingDepth - depth) / 2) * CentiPawn)
-			transpositionTable.AddState(s, eval, 0, uint16(startingDepth)-uint16(depth), TerminalNode)
+			transpositionTable.AddState(s, eval, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
 			return eval
 		} else {
-			transpositionTable.AddState(s, 0, 0, uint16(startingDepth)-uint16(depth), TerminalNode)
+			transpositionTable.AddState(s, 0, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
 			return 0
 		}
 	}

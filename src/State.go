@@ -782,3 +782,31 @@ func (s *State) String() string {
 	result += fmt.Sprintf("Castle Availability: %v", *s.castleAvailability)
 	return result + "\n"
 }
+
+func (s *State) getPV() string {
+	pvString := ""
+	moveStack := make([]Move, 0, 30)
+	var result TableData
+	var found bool
+	for {
+		result, found = transpositionTable.SearchState(s)
+		if found {
+			bestMove := result.bestMove
+			if bestMove != NilMove {
+				pvString += bestMove.ShortString() + " "
+				moveStack = append(moveStack, bestMove)
+				s.MakeMove(bestMove)
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+	stackPointer := len(moveStack) - 1
+	for stackPointer >= 0 {
+		s.UnMakeMove(moveStack[stackPointer])
+		stackPointer--
+	}
+	return pvString
+}
