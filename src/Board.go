@@ -12,6 +12,27 @@ const (
 
 type Board [12]Bitboard
 
+func (b *Board) getPieceAtRanged(s Square, min uint8, max uint8) uint8 {
+	for i := min; i <= max; i++ {
+		if b[i]&(1<<Bitboard(s)) != EmptyBitboard {
+			return i
+		}
+	}
+	return NoPiece
+}
+
+func (b *Board) getColorPieceAt(s Square, color uint8) uint8 {
+	if color == White {
+		return b.getPieceAtRanged(s, 0, 5)
+	} else {
+		return b.getPieceAtRanged(s, 6, 11)
+	}
+}
+
+func (b *Board) getPieceAt(s Square) uint8 {
+	return b.getPieceAtRanged(s, 0, 11)
+}
+
 func (b *Board) String() string {
 	pieceMap := [12]string{"K", "Q", "R", "B", "N", "P", "k", "q", "r", "b", "n", "p"}
 	result := [64]string{}

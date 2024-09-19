@@ -7,7 +7,7 @@ const (
 	KnightValue int32 = CentiPawn * 300
 	RookValue   int32 = CentiPawn * 500
 	QueenValue  int32 = CentiPawn * 900
-	KingValue   int32 = 0
+	KingValue   int32 = CentiPawn * 1000
 
 	DoublePawnValue   int32 = CentiPawn * -25
 	PassedPawnValue   int32 = CentiPawn * 50

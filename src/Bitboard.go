@@ -113,5 +113,4 @@ func (s Square) String() string {
 	rank := s.Rank()
 	file := s.File()
 	return fileMap[file] + strconv.FormatInt(int64(rank+1), 10)
-
 }
