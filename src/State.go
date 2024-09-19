@@ -290,7 +290,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	// Start Bishop
 	if checkBlockerSquares != EmptyBitboard {
 		bishopBoard := s.board[friendIndex+Bishop]
-		genSliderMoves(s, Bishop+friendIndex, bishopBoard, &captures, &quiets, genInfo, getBishopMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		genSliderMoves(s, Bishop, bishopBoard, &captures, &quiets, genInfo, getBishopMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
 	}
 	// End Bishop
 	// Start Knight
@@ -305,7 +305,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 				for knightAttacks != 0 {
 					attackSquare := popFunction(&knightAttacks)
 					attackedPiece := s.board.getColorPieceAt(attackSquare, 1-s.turn)
-					captures = append(captures, CaptureMove{BuildMove(knightSquare, attackSquare, 0, 0), valueTable[attackedPiece] - valueTable[pieceIndex]})
+					captures = append(captures, CaptureMove{BuildMove(knightSquare, attackSquare, 0, 0), valueTable[attackedPiece%6] - valueTable[Knight]})
 				}
 				if includeQuiets {
 					knightQuiets := knightMoves & notOccupied & checkBlockerSquares
@@ -321,13 +321,13 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	// Start Queen
 	if checkBlockerSquares != 0 {
 		queenBoard := s.board[friendIndex+Queen]
-		genSliderMoves(s, Queen+friendIndex, queenBoard, &captures, &quiets, genInfo, getQueenMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		genSliderMoves(s, Queen, queenBoard, &captures, &quiets, genInfo, getQueenMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
 	}
 	// End Queen
 	// Start Rook
 	if checkBlockerSquares != 0 {
 		rookBoard := s.board[friendIndex+Rook]
-		genSliderMoves(s, Rook+friendIndex, rookBoard, &captures, &quiets, genInfo, getRookMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		genSliderMoves(s, Rook, rookBoard, &captures, &quiets, genInfo, getRookMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
 	}
 	// End Rook
 	// Start Pawn
@@ -462,7 +462,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	})
 	moves := make([]Move, len(captures)+len(quiets))
 	totalIndex := 0
-	badCutoff := 0
+	badCutoff := len(captures)
 	for i := 0; i < len(captures); i++ {
 		if captures[i].captureValue >= 0 {
 			moves[totalIndex] = captures[i].move
@@ -476,7 +476,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		moves[totalIndex] = quiets[i].move
 		totalIndex++
 	}
-	for i := badCutoff; i < len(quiets); i++ {
+	for i := badCutoff; i < len(captures); i++ {
 		moves[totalIndex] = captures[i].move
 		totalIndex++
 	}
@@ -804,7 +804,7 @@ func FenState(fenString string) *State {
 		enPassantSquare = Square(rank*8 + file)
 
 	}
-	var historyTable *HistoryTable
+	historyTable := &HistoryTable{}
 	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), historyTable: historyTable}
 }
 

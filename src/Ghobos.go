@@ -12,8 +12,9 @@ func main() {
 	InitializeEvalVariables()
 	SetupTable(2024)
 	UIGame()
-	// state := FenState("5Q2/3kN3/8/2B3p1/p7/8/PPP2PPP/R3R1K1 w - - 0 28")
+	// state := FenState("r1bqkbnr/pppppppp/B7/8/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 0 2")
 	// state.check = false
+	// state.genAllMoves(true)
 	// var nodesSearched int32 = 0
 	// start := time.Now()
 	// bestMove := state.getBestMove(3, &nodesSearched)
