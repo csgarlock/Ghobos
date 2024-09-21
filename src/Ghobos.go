@@ -42,7 +42,7 @@ func UIGame() {
 			break
 		}
 	}
-	gameState := FenState("2q3k1/p1p1b2p/8/2P5/3pP3/P7/3KP1pP/3R2NR w - - 0 25")
+	gameState := StartingFen()
 	gameOver := false
 	playerTurn := true
 	if playerSide == Black {
