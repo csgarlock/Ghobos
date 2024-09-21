@@ -42,7 +42,7 @@ func UIGame() {
 			break
 		}
 	}
-	gameState := StartingFen()
+	gameState := FenState("2q3k1/p1p1b2p/8/2P5/3pP3/P7/3KP1pP/3R2NR w - - 0 25")
 	gameOver := false
 	playerTurn := true
 	if playerSide == Black {
@@ -90,9 +90,9 @@ func UIGame() {
 				}
 			}
 		} else {
-			searchTime := int32(GetUserNumber("How long would you like to search (in seconds)?: "))
+			searchTime := GetUserFloat("How long would you like to search (in seconds)?: ")
 			var nodesSeached int32
-			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime)*time.Second, &nodesSeached)
+			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime*float64(time.Second)), &nodesSeached)
 			gameState.MakeMove(bestMove)
 		}
 		playerTurn = !playerTurn
@@ -213,6 +213,25 @@ func GetUserNumber(prompt string) int {
 			continue
 		}
 		num, err = strconv.Atoi(userInput)
+		if err != nil {
+			fmt.Println("Error converting to integer:", err)
+			continue
+		}
+		return num
+	}
+}
+func GetUserFloat(prompt string) float64 {
+	for {
+		var userInput string
+		var num float64
+
+		fmt.Print(prompt)
+		_, err := fmt.Scanln(&userInput)
+		if err != nil {
+			fmt.Println("Error reading input:", err)
+			continue
+		}
+		num, err = strconv.ParseFloat(userInput, 64)
 		if err != nil {
 			fmt.Println("Error converting to integer:", err)
 			continue

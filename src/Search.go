@@ -178,6 +178,11 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 		s.UnMakeMove(move)
 		if score >= beta {
 			transpositionTable.AddState(s, beta, move, uint16(startingDepth)-uint16(depth), CutNode)
+			friendPiece := s.board.getColorPieceAt(move.OriginSquare(), s.turn)
+			enemyPiece := s.board.getColorPieceAt(move.DestinationSquare(), 1-s.turn)
+			if enemyPiece == NoPiece {
+				s.historyTable[friendPiece][move.DestinationSquare()] += uint64(depth * depth)
+			}
 			return beta
 		}
 		if score > alpha {
