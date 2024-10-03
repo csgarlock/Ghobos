@@ -231,7 +231,10 @@ func (s *State) UnMakeMove(move Move) {
 	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
 	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
 	if s.enPassantSquareHistory.MostRecentCapturePly() == s.ply-1 {
-		enPassantEntry := s.enPassantSquareHistory.Pop()
+		s.enPassantSquareHistory.Pop()
+	}
+	if s.enPassantSquareHistory.MostRecentCapturePly() == s.ply-2 {
+		enPassantEntry := s.enPassantSquareHistory.Peek()
 		s.enPassantSquare = enPassantEntry.square
 		s.canEnpassant = true
 	} else {

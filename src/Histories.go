@@ -72,6 +72,10 @@ func (eH *EnPassantSquareHistory) Pop() EnPassantEntry {
 	return capture
 }
 
+func (eH *EnPassantSquareHistory) Peek() EnPassantEntry {
+	return eH.slice[eH.currentIndex-1]
+}
+
 func (eH *EnPassantSquareHistory) Push(square Square, ply uint16) {
 	eH.slice[eH.currentIndex] = EnPassantEntry{square: square, ply: ply}
 	eH.currentIndex++
