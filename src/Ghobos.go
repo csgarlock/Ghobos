@@ -10,17 +10,8 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(2024)
+	SetupTable(4096)
 	UIGame()
-	// state := FenState("r1bqkbnr/pppppppp/B7/8/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 0 2")
-	// state.check = false
-	// state.genAllMoves(true)
-	// var nodesSearched int32 = 0
-	// start := time.Now()
-	// bestMove := state.getBestMove(3, &nodesSearched)
-	// fmt.Println(time.Since(start))
-	// fmt.Println(bestMove)
-	// fmt.Println(nodesSearched)
 }
 
 func UIGame() {
