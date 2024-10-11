@@ -82,8 +82,7 @@ func UIGame() {
 			}
 		} else {
 			searchTime := GetUserFloat("How long would you like to search (in seconds)?: ")
-			var nodesSeached int32
-			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime*float64(time.Second)), &nodesSeached)
+			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime * float64(time.Second)))
 			gameState.MakeMove(bestMove)
 		}
 		playerTurn = !playerTurn

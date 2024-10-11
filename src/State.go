@@ -20,7 +20,6 @@ type State struct {
 	ply                    uint16
 	castleAvailability     *CastleAvailability
 	castleHistory          *CastleHistory
-	historyTable           *HistoryTable
 }
 
 // Stores important information about the current move being generated to more easily pass to functions
@@ -55,8 +54,6 @@ type CaptureMove struct {
 	move         Move
 	captureValue int32
 }
-
-type HistoryTable [12][64]uint64
 
 func (s *State) MakeMove(move Move) {
 	var friendIndex uint8 = s.turn * 6
@@ -314,7 +311,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 					knightQuiets := knightMoves & notOccupied & checkBlockerSquares
 					for knightQuiets != 0 {
 						quietSquare := popFunction(&knightQuiets)
-						quiets = append(quiets, QuietMove{BuildMove(knightSquare, quietSquare, 0, 0), s.historyTable[pieceIndex][quietSquare]})
+						quiets = append(quiets, QuietMove{BuildMove(knightSquare, quietSquare, 0, 0), historyTable[pieceIndex][quietSquare]})
 					}
 				}
 			}
@@ -395,7 +392,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 				pawnMoves := GetPawnMoves(pawnSquare, occupied, moveStep, homeRank) & safeBoard & checkBlockerSquares
 				for pawnMoves != 0 {
 					desSquare := popFunction(&pawnMoves)
-					historyValue := s.historyTable[Pawn+friendIndex][desSquare]
+					historyValue := historyTable[Pawn+friendIndex][desSquare]
 					if desSquare.Rank() == promotionRank {
 						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 0, PromotionSpecialMove), historyValue})
 						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 1, PromotionSpecialMove), historyValue})
@@ -427,7 +424,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 		for kingQuiets != 0 {
 			desSquare := popFunction(&kingQuiets)
 			if isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-				quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, 0), s.historyTable[King+friendIndex][desSquare]})
+				quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, 0), historyTable[King+friendIndex][desSquare]})
 			}
 		}
 	}
@@ -439,7 +436,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 			if occupied&Bitboard(0x60<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x80<<rankIndex) != 0 {
 				desSquare := kingSquare + 2
 				if isSquareSafe(Square(5+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), s.historyTable[King+friendIndex][desSquare]})
+					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
 				}
 			}
 		}
@@ -449,7 +446,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 			if occupied&Bitboard(0xE<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x1<<rankIndex) != 0 {
 				desSquare := kingSquare - 2
 				if isSquareSafe(Square(3+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), s.historyTable[King+friendIndex][desSquare]})
+					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
 				}
 			}
 		}
@@ -567,7 +564,7 @@ func genSliderMoves(s *State, piece uint8, board Bitboard, captures *[]CaptureMo
 			sliderQuiets := sliderMoves & genInfo.notOccupied & safeSquares & checkBlockerSquares
 			for sliderQuiets != 0 {
 				quietSquare := genInfo.popFunction(&sliderQuiets)
-				*quiets = append(*quiets, QuietMove{BuildMove(sliderSquare, quietSquare, 0, 0), s.historyTable[piece][quietSquare]})
+				*quiets = append(*quiets, QuietMove{BuildMove(sliderSquare, quietSquare, 0, 0), historyTable[piece][quietSquare]})
 			}
 		}
 	}
@@ -807,8 +804,7 @@ func FenState(fenString string) *State {
 		enPassantSquare = Square(rank*8 + file)
 
 	}
-	historyTable := &HistoryTable{}
-	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), historyTable: historyTable}
+	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4)}
 }
 
 func StartingFen() *State {

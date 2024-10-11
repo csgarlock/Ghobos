@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+type HistoryTable [12][64]uint64
+
 const (
 	min32 int32 = -2147483646
 	max32 int32 = 2147483647
@@ -19,31 +21,36 @@ const (
 	asperationMateSearchCutoff int32 = CentiPawn * 2000
 )
 
+var nodesSearched uint64 = 0
+
 var startingDepth int32 = 0
 
 var lastMoveScore int32 = startingEval
 
-func (s *State) IterativeDeepiningSearch(maxTime time.Duration, nodesSearched *int32) Move {
+var historyTable HistoryTable = HistoryTable{}
+
+func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 	startTime := time.Now()
 	result, found := transpositionTable.SearchState(s)
-	var stateEvalGuess int32
+	stateEvalGuess := lastMoveScore
 	if found {
 		stateEvalGuess = EvalLowToHigh(result.eval)
-	} else {
-		stateEvalGuess = lastMoveScore
 	}
-	var aspirationWindowLow int32 = stateEvalGuess - startingAsperationWindowOffset
-	var aspirationWindowHigh int32 = stateEvalGuess + startingAsperationWindowOffset
-	var aspirationDelta int32 = startingAsperationWindowOffset
-	var bestFoundMove Move = 0
-	var currentDepth int32 = 1
-	var contendingMove Move
+	aspirationWindowLow := stateEvalGuess - startingAsperationWindowOffset
+	aspirationWindowHigh := stateEvalGuess + startingAsperationWindowOffset
+	aspirationDelta := startingAsperationWindowOffset
+	bestFoundMove := Move(0)
+	currentDepth := int32(1)
+	contendingMove := NilMove
 	stateScore := stateEvalGuess
+	lastSearchNodes := uint64(1)
 	for time.Since(startTime) < maxTime {
 		fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
 		startingDepth = currentDepth
-		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, nodesSearched)
-		fmt.Println("Searched to Depth:", currentDepth, ", Best Move:", contendingMove.ShortString(), " Value:", NormalizeEval(stateScore))
+		nodesSearched = 0
+		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh)
+		effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
+		fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %.2f, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), NormalizeEval(stateScore), effectiveBranchFactor)
 		// Check if returned score was at bounds of aspiration window
 		if stateScore == aspirationWindowLow {
 			fmt.Println("Searched Failed Low")
@@ -75,14 +82,15 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, nodesSearched *i
 			aspirationWindowLow = stateScore - aspirationDelta
 			aspirationWindowHigh = stateScore + aspirationDelta
 			currentDepth += 1
+			lastSearchNodes = nodesSearched
 		}
 	}
 	fmt.Println("Excpected Moves: ", s.getPV())
 	return bestFoundMove
 }
 
-func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int32) (int32, Move) {
-	*nodesSearched++
+func (s *State) NegaMax(depth int32, alpha int32, beta int32) (int32, Move) {
+	nodesSearched++
 	result, found := transpositionTable.SearchState(s)
 	if found {
 		ttEval := EvalLowToHigh(result.eval)
@@ -92,7 +100,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 		}
 	}
 	if depth == 0 {
-		return s.QuiescenceSearch(alpha, beta, nodesSearched)
+		return s.QuiescenceSearch(alpha, beta)
 	}
 	moves := s.genAllMoves(true)
 	if len(*moves) == 0 {
@@ -120,7 +128,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 	bestMove := (*moves)[0]
 	for _, move := range *moves {
 		s.MakeMove(move)
-		score, _ := s.NegaMax(depth-1, -beta, -alpha, nodesSearched)
+		score, _ := s.NegaMax(depth-1, -beta, -alpha)
 		score *= -1
 		s.UnMakeMove(move)
 		if score >= beta {
@@ -128,7 +136,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 			friendPiece := s.board.getColorPieceAt(move.OriginSquare(), s.turn)
 			enemyPiece := s.board.getColorPieceAt(move.DestinationSquare(), 1-s.turn)
 			if enemyPiece == NoPiece {
-				s.historyTable[friendPiece][move.DestinationSquare()] += uint64(depth * depth)
+				historyTable[friendPiece][move.DestinationSquare()] += uint64(depth * depth)
 			}
 			return beta, move
 		}
@@ -146,8 +154,8 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, nodesSearched *int
 	return alpha, bestMove
 }
 
-func (s *State) QuiescenceSearch(alpha int32, beta int32, nodesSearched *int32) (int32, Move) {
-	*nodesSearched++
+func (s *State) QuiescenceSearch(alpha int32, beta int32) (int32, Move) {
+	nodesSearched++
 	standingPat := s.EvalState(s.turn)
 	if standingPat >= beta {
 		return beta, NilMove
@@ -159,7 +167,7 @@ func (s *State) QuiescenceSearch(alpha int32, beta int32, nodesSearched *int32) 
 	bestMove := NilMove
 	for _, move := range *moves {
 		s.MakeMove(move)
-		score, _ := s.QuiescenceSearch(-beta, -alpha, nodesSearched)
+		score, _ := s.QuiescenceSearch(-beta, -alpha)
 		score *= -1
 		s.UnMakeMove(move)
 
