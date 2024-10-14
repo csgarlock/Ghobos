@@ -2,10 +2,16 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 )
+
+type KillerTable [][2]Move
+
+type SearchParameters struct {
+	killerTable *KillerTable
+	trueDepth   int16 // The true depth from the root node
+}
 
 // 0 = White King Side, 1 = Black King Side, 2 = White Queen Side, 3 = Black Queen Side
 type CastleAvailability [4]bool
@@ -20,6 +26,7 @@ type State struct {
 	ply                    uint16
 	castleAvailability     *CastleAvailability
 	castleHistory          *CastleHistory
+	searchParameters       SearchParameters
 }
 
 // Stores important information about the current move being generated to more easily pass to functions
@@ -218,15 +225,6 @@ func (s *State) UnMakeMove(move Move) {
 		enemyPawnBoard := &s.board[enemyIndex+Pawn]
 		*enemyPawnBoard |= startBoard
 	}
-	enemyKingBoard := s.board[friendIndex+King]
-	enemyBoard := enemyKingBoard | s.board[friendIndex+Queen] | s.board[friendIndex+Rook] | s.board[friendIndex+Bishop] | s.board[friendIndex+Knight] | s.board[friendIndex+Pawn]
-	bishopBoard := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
-	rookBoard := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
-	knightBoard := s.board[enemyIndex+Knight]
-	kingBoard := s.board[enemyIndex+King]
-	pawnBoard := s.board[enemyIndex+Pawn]
-	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
-	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
 	if s.enPassantSquareHistory.MostRecentCapturePly() == s.ply-1 {
 		s.enPassantSquareHistory.Pop()
 	}
@@ -247,11 +245,45 @@ func (s *State) UnMakeMove(move Move) {
 		}
 	}
 	s.turn = 1 - s.turn
+	enemyKingBoard := s.board[enemyIndex+King]
+	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]
+	bishopBoard := s.board[friendIndex+Bishop] | s.board[friendIndex+Queen]
+	rookBoard := s.board[friendIndex+Rook] | s.board[friendIndex+Queen]
+	knightBoard := s.board[friendIndex+Knight]
+	kingBoard := s.board[friendIndex+King]
+	pawnBoard := s.board[friendIndex+Pawn]
+	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
+	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.ply--
 }
 
-func (s *State) genAllMoves(includeQuiets bool) *[]Move {
+func (s *State) quickGenMoves() *[]Move {
+	captures, quiets := s.genAllMoves(true)
+	moves := make([]Move, len(*captures)+len(*quiets))
+	totalIndex := 0
+	badCutoff := len(*captures)
+	for i := 0; i < len(*captures); i++ {
+		if (*captures)[i].captureValue >= 0 {
+			moves[totalIndex] = (*captures)[i].move
+			totalIndex++
+		} else {
+			badCutoff = i
+			break
+		}
+	}
+	for i := 0; i < len(*quiets); i++ {
+		moves[totalIndex] = (*quiets)[i].move
+		totalIndex++
+	}
+	for i := badCutoff; i < len(*captures); i++ {
+		moves[totalIndex] = (*captures)[i].move
+		totalIndex++
+	}
+	return &moves
+}
+
+func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	// We want the pop function to pop the the bits at the top of the board relative to whos turn
 	// it is. So when it's white's turn we pop the most significant bit first and with black
 	// we pop the least significant bit first
@@ -454,33 +486,7 @@ func (s *State) genAllMoves(includeQuiets bool) *[]Move {
 	}
 	// Castle End
 	// End King
-	sort.Slice(captures, func(i, j int) bool {
-		return captures[i].captureValue > captures[j].captureValue
-	})
-	sort.Slice(quiets, func(i, j int) bool {
-		return quiets[i].historyValue > quiets[j].historyValue
-	})
-	moves := make([]Move, len(captures)+len(quiets))
-	totalIndex := 0
-	badCutoff := len(captures)
-	for i := 0; i < len(captures); i++ {
-		if captures[i].captureValue >= 0 {
-			moves[totalIndex] = captures[i].move
-			totalIndex++
-		} else {
-			badCutoff = i
-			break
-		}
-	}
-	for i := 0; i < len(quiets); i++ {
-		moves[totalIndex] = quiets[i].move
-		totalIndex++
-	}
-	for i := badCutoff; i < len(captures); i++ {
-		moves[totalIndex] = captures[i].move
-		totalIndex++
-	}
-	return &moves
+	return &captures, &quiets
 }
 
 func getKingPins(kingSquare Square, friendBoard Bitboard, bishopBoard Bitboard, rookBoard Bitboard, enemyBoard Bitboard) (Bitboard, *[]PinSafety) {
@@ -804,7 +810,13 @@ func FenState(fenString string) *State {
 		enPassantSquare = Square(rank*8 + file)
 
 	}
-	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4)}
+	killerTable := make(KillerTable, 5)
+	for i := range len(killerTable) {
+		killerTable[i][0] = NilMove
+		killerTable[i][1] = NilMove
+	}
+	searchParameters := SearchParameters{killerTable: &killerTable, trueDepth: -1}
+	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), searchParameters: searchParameters}
 }
 
 func StartingFen() *State {

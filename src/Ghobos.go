@@ -12,6 +12,7 @@ func main() {
 	InitializeEvalVariables()
 	SetupTable(4096)
 	UIGame()
+
 }
 
 func UIGame() {
@@ -45,7 +46,7 @@ func UIGame() {
 			for {
 				playerMove := getUserMove()
 				fmt.Println(playerMove)
-				validMoves := gameState.genAllMoves(true)
+				validMoves := gameState.quickGenMoves()
 				found := false
 				var foundMove Move
 				for _, move := range *validMoves {
@@ -93,7 +94,7 @@ func PerftChecker(depth int64, s *State) {
 	var d int64 = 0
 	currentDepth := depth
 	for {
-		moves := s.genAllMoves(true)
+		moves := s.quickGenMoves()
 		for i, move := range *moves {
 			fmt.Print(move.ShortString())
 			fmt.Printf(", Move %d: ", i)
@@ -133,7 +134,7 @@ func Perft(depth int64, moveCounter *int64, s *State, checkCounter *int64, mateC
 		*moveCounter++
 		if s.check {
 			//start := time.Now()
-			moves := s.genAllMoves(true)
+			moves := s.quickGenMoves()
 			//*sectionTimer += time.Since(start)
 			if len(*moves) == 0 {
 				*mateCounter++
@@ -141,7 +142,7 @@ func Perft(depth int64, moveCounter *int64, s *State, checkCounter *int64, mateC
 		}
 	} else {
 		start := time.Now()
-		moves := s.genAllMoves(true)
+		moves := s.quickGenMoves()
 		*sectionTimer += time.Since(start)
 		if len(*moves) == 0 {
 			*mateCounter++
