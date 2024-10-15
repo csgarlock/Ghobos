@@ -113,7 +113,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int
 	captures, quiets := s.genAllMoves(true)
 	if len(*captures) == 0 && len(*quiets) == 0 {
 		if s.check {
-			eval := LowestEval + (((startingDepth - depth) / 2) * CentiPawn)
+			eval := LowestEval + (int32(s.searchParameters.trueDepth) * CentiPawn)
 			transpositionTable.AddState(s, eval, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth -= 1
 			return eval, NilMove
@@ -126,10 +126,23 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int
 	moves := s.orderMoves(captures, quiets, projectedBestMove)
 	allNode := true
 	bestMove := (*moves)[0]
-	for _, move := range *moves {
+	for i, move := range *moves {
+		// Reductions
+		reduction := int32(0)
+		// Late Move Reduction
+		if depth > 2 {
+			if i > 3 {
+				reduction += 1
+			}
+		}
+
 		s.MakeMove(move)
-		score, _ := s.NegaMax(depth-1, -beta, -alpha, false)
+		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false)
 		score *= -1
+		if score > alpha && reduction > 0 {
+			score, _ = s.NegaMax(depth-1, -beta, -alpha, false)
+			score *= -1
+		}
 		s.UnMakeMove(move)
 		if score >= beta {
 			transpositionTable.AddState(s, beta, move, uint16(startingDepth)-uint16(depth), CutNode)
