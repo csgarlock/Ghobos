@@ -93,7 +93,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int32, Move) {
 	s.searchParameters.trueDepth += 1
 	nodesSearched++
-	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hash()) >= 3 {
+	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hashcode) >= 3 {
 		s.searchParameters.trueDepth -= 1
 		return 0, NilMove
 	}

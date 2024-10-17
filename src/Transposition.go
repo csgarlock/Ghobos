@@ -46,13 +46,13 @@ func SetupTable(capacity uint64) {
 }
 
 func (tt *TranspositionTable) AddState(s *State, eval int32, bestMove Move, depth uint16, nodeType NodeType) {
-	hash := s.hash()
+	hash := s.hashcode
 	index := hash % tableSize
 	(*tt)[index] = TableEntry{key: hash, data: TableData{eval: EvalHighToLow(eval), bestMove: bestMove, ply: s.ply, depthAndNode: NodeInfo(nodeType)<<14 | NodeInfo(depth)}}
 }
 
 func (tt *TranspositionTable) SearchState(s *State) (TableData, bool) {
-	hash := s.hash()
+	hash := s.hashcode
 	index := hash % tableSize
 	if (*tt)[index].key == hash {
 		return (*tt)[index].data, true

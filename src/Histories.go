@@ -32,6 +32,10 @@ type FiftyMoveHistory struct {
 	slice        []FiftyMoveEntry
 	currentIndex int32
 }
+type HashHistory struct {
+	slice        []uint64
+	currentIndex int32
+}
 
 func NewCaptureHistory(startingLength int32) *CaptureHistory {
 	slice := make([]Capture, startingLength)
@@ -142,4 +146,30 @@ func (fH *FiftyMoveHistory) Peek() FiftyMoveEntry {
 func (fH *FiftyMoveHistory) Push(lastCapOrPawn uint16, ply uint16) {
 	fH.slice[fH.currentIndex] = FiftyMoveEntry{lastCapOrPawn, ply}
 	fH.currentIndex++
+}
+
+func NewHashHistory(startingLength int32) *HashHistory {
+	slice := make([]uint64, startingLength)
+	return &HashHistory{slice: slice, currentIndex: 0}
+}
+
+func (hH *HashHistory) Pop() uint64 {
+	hH.currentIndex--
+	if hH.currentIndex < 0 {
+		panic("Can't pop empty HashHistory")
+	}
+	return hH.slice[hH.currentIndex]
+}
+
+func (hH *HashHistory) Peek() uint64 {
+	return hH.slice[hH.currentIndex-1]
+}
+
+func (hH *HashHistory) Push(hash uint64) {
+	if hH.currentIndex > int32(len(hH.slice)-1) {
+		hH.slice = append(hH.slice, hash)
+	} else {
+		hH.slice[hH.currentIndex] = hash
+	}
+	hH.currentIndex++
 }
