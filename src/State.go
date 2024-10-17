@@ -23,9 +23,12 @@ type State struct {
 	captureHistory         *CaptureHistory
 	canEnpassant           bool
 	enPassantSquareHistory *EnPassantSquareHistory
+	lastCapOrPawn          uint16
 	ply                    uint16
 	castleAvailability     *CastleAvailability
 	castleHistory          *CastleHistory
+	fiftyMoveHistory       *FiftyMoveHistory
+	repetitionMap          *RepetitionMap
 	searchParameters       SearchParameters
 }
 
@@ -68,6 +71,7 @@ func (s *State) MakeMove(move Move) {
 	startSquare := move.OriginSquare()
 	startBoard := Bitboard(1 << Bitboard(startSquare))
 	var startBoardPtr *Bitboard = nil
+	s.lastCapOrPawn += 1
 	startBoardIndex := 0
 	for i := friendIndex; i < friendIndex+6; i++ {
 		board := &s.board[i]
@@ -89,9 +93,13 @@ func (s *State) MakeMove(move Move) {
 	}
 	*startBoardPtr ^= startBoard
 	*startBoardPtr |= desBoard
+	isCapture := false
 	if desBoardPtr != nil {
 		*desBoardPtr ^= desBoard
 		s.captureHistory.Push(uint8(desBoardIndex), s.ply)
+		s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
+		s.lastCapOrPawn = 0
+		isCapture = true
 	}
 	specialMove := move.SpecialMove()
 	if specialMove == CastleSpecialMove {
@@ -154,6 +162,10 @@ func (s *State) MakeMove(move Move) {
 			s.enPassantSquareHistory.Push(s.enPassantSquare, s.ply)
 			s.canEnpassant = true
 		}
+		if !isCapture {
+			s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
+			s.lastCapOrPawn = 0
+		}
 	} else if startBoardIndex == int(friendIndex)+King {
 		if s.castleAvailability[s.turn] {
 			s.castleAvailability[s.turn] = false
@@ -176,15 +188,18 @@ func (s *State) MakeMove(move Move) {
 	s.turn = 1 - s.turn
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.ply++
+	s.repetitionMap.add(s.hash())
 }
 
 func (s *State) UnMakeMove(move Move) {
+	s.repetitionMap.remove(s.hash())
 	var friendIndex uint8 = s.turn * 6
 	var enemyIndex uint8 = (1 - s.turn) * 6
 	startSquare := move.OriginSquare()
 	startBoard := Bitboard(1 << Bitboard(startSquare))
 	desSquare := move.DestinationSquare()
 	desBoard := Bitboard(1 << Bitboard(desSquare))
+	s.lastCapOrPawn -= 1
 	var desBoardPtr *Bitboard = nil
 	for i := enemyIndex; i < enemyIndex+6; i++ {
 		board := &s.board[i]
@@ -243,6 +258,9 @@ func (s *State) UnMakeMove(move Move) {
 			castleEntry = s.castleHistory.Pop()
 			s.castleAvailability[castleEntry.castle] = true
 		}
+	}
+	if s.fiftyMoveHistory.lastReset() == s.ply-1 {
+		s.lastCapOrPawn = s.fiftyMoveHistory.Pop().lastCount
 	}
 	s.turn = 1 - s.turn
 	enemyKingBoard := s.board[enemyIndex+King]
@@ -810,17 +828,91 @@ func FenState(fenString string) *State {
 		enPassantSquare = Square(rank*8 + file)
 
 	}
+	halfMoveClock, err := strconv.Atoi(splitFenString[4])
+	if err != nil {
+		panic("Invalid Fen String (Invalid half move clock)")
+	}
+	fullMoveNumber, err := strconv.Atoi(splitFenString[5])
+	if err != nil {
+		panic("Invalid Fen String (Invalid full move number)")
+	}
+	ply := uint16((fullMoveNumber - 1) * 2)
+	if turn == Black {
+		ply += 1
+	}
 	killerTable := make(KillerTable, 5)
 	for i := range len(killerTable) {
 		killerTable[i][0] = NilMove
 		killerTable[i][1] = NilMove
 	}
 	searchParameters := SearchParameters{killerTable: &killerTable, trueDepth: -1}
-	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), ply: 0, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), searchParameters: searchParameters}
+	fiftyMoveRule := newFiftyMoveRuleHistory(104)
+	repetitionMap := make(RepetitionMap, 50)
+	return &State{board: &board, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, searchParameters: searchParameters}
 }
 
 func StartingFen() *State {
 	return FenState("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+}
+
+func (s *State) fenString() string {
+	output := ""
+	pieceMap := map[uint8]rune{0: 'K', 1: 'Q', 2: 'R', 3: 'B', 4: 'N', 5: 'P', 6: 'k', 7: 'q', 8: 'r', 9: 'b', 10: 'n', 11: 'p'}
+	for r := 7; r >= 0; r-- {
+		rankString := ""
+		emptySquares := 0
+		for f := 0; f < 8; f++ {
+			square := Square(r*8 + f)
+			piece := s.board.getPieceAt(square)
+			if piece != NoPiece {
+				if emptySquares > 0 {
+					rankString += strconv.FormatInt(int64(emptySquares), 10)
+				}
+				rankString += string(pieceMap[piece])
+				emptySquares = 0
+			} else {
+				emptySquares += 1
+			}
+		}
+		if emptySquares != 0 {
+			rankString += strconv.FormatInt(int64(emptySquares), 10)
+		}
+		output += rankString
+		if r != 0 {
+			output += "/"
+		}
+	}
+	if s.turn == White {
+		output += " w "
+	} else {
+		output += " b "
+	}
+	castleString := ""
+	if s.castleAvailability[0] {
+		castleString += "K"
+	}
+	if s.castleAvailability[2] {
+		castleString += "Q"
+	}
+	if s.castleAvailability[1] {
+		castleString += "k"
+	}
+	if s.castleAvailability[3] {
+		castleString += "q"
+	}
+	if castleString != "" {
+		output += castleString + " "
+	} else {
+		output += "- "
+	}
+	if s.canEnpassant {
+		output += s.enPassantSquare.String() + " "
+	} else {
+		output += "- "
+	}
+	output += strconv.FormatInt(int64(s.lastCapOrPawn), 10) + " "
+	output += strconv.FormatInt(int64(s.ply/2+1), 10)
+	return output
 }
 
 func (s *State) String() string {

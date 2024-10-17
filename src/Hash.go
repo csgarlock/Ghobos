@@ -2,6 +2,8 @@ package main
 
 import "math/rand"
 
+type RepetitionMap map[uint64]uint16
+
 var squareHashes [12][64]uint64
 var blackHash uint64
 var castleHashes [4]uint64
@@ -43,4 +45,30 @@ func (s *State) hash() uint64 {
 		hash ^= enPassantHashes[s.enPassantSquare.File()]
 	}
 	return hash
+}
+
+func (repetitionMap *RepetitionMap) add(hash uint64) {
+	_, exists := (*repetitionMap)[hash]
+	if exists {
+		(*repetitionMap)[hash] += 1
+	} else {
+		(*repetitionMap)[hash] = 1
+	}
+}
+
+func (repetitionMap *RepetitionMap) remove(hash uint64) {
+	value, exists := (*repetitionMap)[hash]
+	if exists {
+		if value == 1 {
+			delete(*repetitionMap, hash)
+		} else {
+			(*repetitionMap)[hash] -= 1
+		}
+	} else {
+		panic("Can't remove from repetition hash. is not in table")
+	}
+}
+
+func (repetitionMap *RepetitionMap) get(hash uint64) uint16 {
+	return (*repetitionMap)[hash]
 }

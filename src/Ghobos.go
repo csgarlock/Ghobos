@@ -11,8 +11,28 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	SetupTable(4096)
+	// s := StartingFen()
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.MakeMove(BuildMove(12, 20, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.MakeMove(BuildMove(52, 44, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.MakeMove(BuildMove(6, 21, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.UnMakeMove(BuildMove(6, 21, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.UnMakeMove(BuildMove(52, 44, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
+	// s.UnMakeMove(BuildMove(12, 20, 0, 0))
+	// fmt.Println(s.fiftyMoveHistory)
+	// fmt.Println(s.lastCapOrPawn)
 	UIGame()
-
 }
 
 func UIGame() {
@@ -42,6 +62,7 @@ func UIGame() {
 	}
 	for !gameOver {
 		fmt.Println(gameState)
+		fmt.Println(gameState.fenString())
 		if playerTurn {
 			for {
 				playerMove := getUserMove()

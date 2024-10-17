@@ -24,6 +24,14 @@ type CastleHistory struct {
 	slice        []CastleHistoryEntry
 	currentIndex int32
 }
+type FiftyMoveEntry struct {
+	lastCount uint16
+	ply       uint16
+}
+type FiftyMoveHistory struct {
+	slice        []FiftyMoveEntry
+	currentIndex int32
+}
 
 func NewCaptureHistory(startingLength int32) *CaptureHistory {
 	slice := make([]Capture, startingLength)
@@ -105,4 +113,33 @@ func (cH *CastleHistory) Pop() CastleHistoryEntry {
 func (cH *CastleHistory) Push(castle uint8, ply uint16) {
 	cH.slice[cH.currentIndex] = CastleHistoryEntry{castle: castle, ply: ply}
 	cH.currentIndex++
+}
+
+func newFiftyMoveRuleHistory(startingLength int32) *FiftyMoveHistory {
+	slice := make([]FiftyMoveEntry, startingLength)
+	return &FiftyMoveHistory{slice: slice, currentIndex: 0}
+}
+
+func (fH *FiftyMoveHistory) lastReset() uint16 {
+	if fH.currentIndex == 0 {
+		return 65530
+	}
+	return fH.slice[fH.currentIndex-1].ply
+}
+
+func (fH *FiftyMoveHistory) Pop() FiftyMoveEntry {
+	fH.currentIndex--
+	if fH.currentIndex < 0 {
+		panic("Can't pop empty PieceHistory")
+	}
+	return fH.slice[fH.currentIndex]
+}
+
+func (fH *FiftyMoveHistory) Peek() FiftyMoveEntry {
+	return fH.slice[fH.currentIndex-1]
+}
+
+func (fH *FiftyMoveHistory) Push(lastCapOrPawn uint16, ply uint16) {
+	fH.slice[fH.currentIndex] = FiftyMoveEntry{lastCapOrPawn, ply}
+	fH.currentIndex++
 }
