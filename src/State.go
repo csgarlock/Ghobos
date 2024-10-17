@@ -127,6 +127,7 @@ func (s *State) MakeMove(move Move) {
 		}
 		s.board[friendIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
 		s.board[friendIndex+Rook] |= Bitboard(1 << Bitboard(rookSquare))
+		s.hashcode ^= squareHashes[friendIndex+Rook][startingRookSquare] ^ squareHashes[friendIndex+Rook][rookSquare]
 	} else if specialMove == PromotionSpecialMove {
 		s.hashcode ^= squareHashes[startBoardIndex][desSquare]
 		promotionType := move.PromotionType()
@@ -154,6 +155,7 @@ func (s *State) MakeMove(move Move) {
 		enPassantCaptureSquare := desSquare.Step(relativeDownStep)
 		enPassantCaptureBoard := Bitboard(1 << Bitboard(enPassantCaptureSquare))
 		*enemyPawnBoard ^= enPassantCaptureBoard
+		s.hashcode ^= squareHashes[enemyIndex+Pawn][enPassantCaptureSquare]
 		s.captureHistory.Push(enemyIndex+Pawn, s.ply)
 	}
 	enemyKingBoard := s.board[enemyIndex+King]
