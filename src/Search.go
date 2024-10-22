@@ -20,6 +20,8 @@ const (
 	startingAsperationWindowOffset int32 = CentiPawn * 10
 
 	asperationMateSearchCutoff int32 = CentiPawn * 2000
+
+	NullMoveReduction = 2
 )
 
 var nodesSearched uint64 = 0
@@ -46,16 +48,17 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 	stateScore := stateEvalGuess
 	lastSearchNodes := uint64(1)
 	for time.Since(startTime) < maxTime {
+		fmt.Println("Search time left: ", maxTime-time.Since(startTime))
 		fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
 		startingDepth = currentDepth
 		nodesSearched = 0
-		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, true)
+		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, true, true)
 		effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
 		fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %.2f, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), NormalizeEval(stateScore), effectiveBranchFactor)
 		// Check if returned score was at bounds of aspiration window
 		if stateScore == aspirationWindowLow {
 			fmt.Println("Searched Failed Low")
-			aspirationWindowHigh -= aspirationDelta / 2
+			aspirationWindowHigh -= aspirationDelta / 3
 			if aspirationWindowLow <= -asperationMateSearchCutoff {
 				aspirationWindowLow = min32
 			} else {
@@ -64,7 +67,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 			}
 		} else if stateScore == aspirationWindowHigh {
 			fmt.Println("Searched Failed High")
-			aspirationWindowLow += aspirationDelta / 2
+			aspirationWindowLow += aspirationDelta / 3
 			if aspirationWindowHigh >= asperationMateSearchCutoff {
 				aspirationWindowHigh = max32
 			} else {
@@ -90,7 +93,10 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 	return bestFoundMove
 }
 
-func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int32, Move) {
+func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skipNull bool) (int32, Move) {
+	if s.hashcode != s.hash() {
+		fmt.Println(s)
+	}
 	s.searchParameters.trueDepth += 1
 	nodesSearched++
 	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hashcode) >= 3 {
@@ -108,7 +114,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int
 		}
 		projectedBestMove = result.bestMove
 	} else if depth > 5 && !skipIID {
-		_, projectedBestMove = s.NegaMax(depth/2, alpha, beta, true)
+		_, projectedBestMove = s.NegaMax(depth/2, alpha, beta, true, true)
 	}
 	if depth == 0 {
 		s.searchParameters.trueDepth -= 1
@@ -127,6 +133,26 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int
 			return 0, NilMove
 		}
 	}
+	if !s.check && depth > 1 && !skipNull {
+		friendIndex := s.turn * 6
+		hasBigPiece := false
+		for i := uint8(1); i < 5; i++ {
+			if s.board[friendIndex+i] != 0 {
+				hasBigPiece = true
+				break
+			}
+		}
+		if hasBigPiece {
+			s.MakeMove(PassingMove)
+			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -alpha, false, false)
+			score *= -1
+			s.UnMakeMove(PassingMove)
+			if score >= beta {
+				s.searchParameters.trueDepth -= 1
+				return beta, PassingMove
+			}
+		}
+	}
 	moves := s.orderMoves(captures, quiets, projectedBestMove)
 	allNode := true
 	bestMove := (*moves)[0]
@@ -140,10 +166,10 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool) (int
 			}
 		}
 		s.MakeMove(move)
-		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false)
+		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false)
 		score *= -1
 		if score > alpha && reduction > 0 {
-			score, _ = s.NegaMax(depth-1, -beta, -alpha, false)
+			score, _ = s.NegaMax(depth-1, -beta, -alpha, false, false)
 			score *= -1
 		}
 		s.UnMakeMove(move)
@@ -209,6 +235,22 @@ func (s *State) QuiescenceSearch(alpha int32, beta int32) (int32, Move) {
 }
 
 func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove Move) *[]Move {
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		fmt.Println(err)
+	// 		fmt.Println(s)
+	// 		fmt.Println(s.fenString())
+	// 		fmt.Println(ttMove)
+	// 		for _, cap := range *captures {
+	// 			fmt.Println(cap.move.ShortString())
+	// 		}
+	// 		fmt.Println("Q start")
+	// 		for _, qu := range *quiets {
+	// 			fmt.Println(qu.move.ShortString())
+	// 		}
+	// 		panic("AHHH")
+	// 	}
+	// }()
 	sortedMoves := make([]Move, len(*captures)+len(*quiets))
 	totalIndex := 0
 	sort.Slice(*captures, func(i, j int) bool {
@@ -217,7 +259,7 @@ func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove 
 	sort.Slice(*quiets, func(i, j int) bool {
 		return (*quiets)[i].historyValue > (*quiets)[j].historyValue
 	})
-	if ttMove != NilMove {
+	if ttMove != NilMove && ttMove != PassingMove {
 		sortedMoves[0] = ttMove
 		totalIndex++
 	}

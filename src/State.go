@@ -68,96 +68,145 @@ type CaptureMove struct {
 }
 
 func (s *State) MakeMove(move Move) {
-	var friendIndex uint8 = s.turn * 6
-	var enemyIndex uint8 = (1 - s.turn) * 6
-	startSquare := move.OriginSquare()
-	startBoard := Bitboard(1 << Bitboard(startSquare))
-	var startBoardPtr *Bitboard = nil
 	s.lastCapOrPawn += 1
-	startBoardIndex := 0
-	for i := friendIndex; i < friendIndex+6; i++ {
-		board := &s.board[i]
-		if *board&startBoard != 0 {
-			startBoardPtr = board
-			startBoardIndex = int(i)
-		}
-	}
-	s.hashcode ^= squareHashes[startBoardIndex][startSquare]
-	desSquare := move.DestinationSquare()
-	desBoard := Bitboard(1 << Bitboard(desSquare))
-	s.hashcode ^= squareHashes[startBoardIndex][desSquare]
-	var desBoardPtr *Bitboard = nil
-	desBoardIndex := 0
-	for i := enemyIndex; i < enemyIndex+6; i++ {
-		board := &s.board[i]
-		if *board&desBoard != 0 {
-			desBoardPtr = board
-			desBoardIndex = int(i)
-		}
-	}
-	*startBoardPtr ^= startBoard
-	*startBoardPtr |= desBoard
-	isCapture := false
-	if desBoardPtr != nil {
-		*desBoardPtr ^= desBoard
-		s.captureHistory.Push(uint8(desBoardIndex), s.ply)
-		s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
-		s.lastCapOrPawn = 0
-		isCapture = true
-		s.hashcode ^= squareHashes[desBoardIndex][desSquare]
-	}
+	friendIndex := s.turn * 6
+	enemyIndex := (1 - s.turn) * 6
 	if s.canEnpassant {
 		s.hashcode ^= enPassantHashes[s.enPassantSquare%8]
 	}
-	specialMove := move.SpecialMove()
-	if specialMove == CastleSpecialMove {
-		rankIndex := Square(s.turn * 56)
-		rookSquare := Square(5 + rankIndex)
-		startingRookSquare := Square(7 + rankIndex)
-		if desSquare == Square(2) || desSquare == Square(58) {
-			s.castleAvailability[s.turn+2] = false
-			s.hashcode ^= castleHashes[s.turn+2]
-			s.castleHistory.Push(s.turn+2, s.ply)
-			rookSquare = Square(3 + rankIndex)
-			startingRookSquare = Square(0 + rankIndex)
-		} else {
-			s.castleAvailability[s.turn] = false
-			s.hashcode ^= castleHashes[s.turn]
-			s.castleHistory.Push(s.turn, s.ply)
+	if move != PassingMove {
+		startSquare := move.OriginSquare()
+		startBoard := Bitboard(1 << Bitboard(startSquare))
+		var startBoardPtr *Bitboard = nil
+		startBoardIndex := 0
+		for i := friendIndex; i < friendIndex+6; i++ {
+			board := &s.board[i]
+			if *board&startBoard != 0 {
+				startBoardPtr = board
+				startBoardIndex = int(i)
+			}
 		}
-		s.board[friendIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
-		s.board[friendIndex+Rook] |= Bitboard(1 << Bitboard(rookSquare))
-		s.hashcode ^= squareHashes[friendIndex+Rook][startingRookSquare] ^ squareHashes[friendIndex+Rook][rookSquare]
-	} else if specialMove == PromotionSpecialMove {
+		s.hashcode ^= squareHashes[startBoardIndex][startSquare]
+		desSquare := move.DestinationSquare()
+		desBoard := Bitboard(1 << Bitboard(desSquare))
 		s.hashcode ^= squareHashes[startBoardIndex][desSquare]
-		promotionType := move.PromotionType()
-		promotionBoard := &s.board[friendIndex+Queen]
-		if promotionType == RookPromotion {
-			promotionBoard = &s.board[friendIndex+Rook]
-			s.hashcode ^= squareHashes[friendIndex+Rook][desSquare]
-		} else if promotionType == KnightPromotion {
-			promotionBoard = &s.board[friendIndex+Knight]
-			s.hashcode ^= squareHashes[friendIndex+Knight][desSquare]
-		} else if promotionType == BishopPromotion {
-			promotionBoard = &s.board[friendIndex+Bishop]
-			s.hashcode ^= squareHashes[friendIndex+Bishop][desSquare]
-		} else {
-			s.hashcode ^= squareHashes[friendIndex+Queen][desSquare]
+		var desBoardPtr *Bitboard = nil
+		desBoardIndex := 0
+		for i := enemyIndex; i < enemyIndex+6; i++ {
+			board := &s.board[i]
+			if *board&desBoard != 0 {
+				desBoardPtr = board
+				desBoardIndex = int(i)
+			}
 		}
-		*promotionBoard |= desBoard
-		*startBoardPtr ^= desBoard
-	} else if specialMove == EnPassantSpacialMove {
-		enemyPawnBoard := &s.board[enemyIndex+Pawn]
-		relativeDownStep := DownStep
-		if s.turn == Black {
-			relativeDownStep = UpStep
+		*startBoardPtr ^= startBoard
+		*startBoardPtr |= desBoard
+		isCapture := false
+		if desBoardPtr != nil {
+			*desBoardPtr ^= desBoard
+			s.captureHistory.Push(uint8(desBoardIndex), s.ply)
+			s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
+			s.lastCapOrPawn = 0
+			isCapture = true
+			s.hashcode ^= squareHashes[desBoardIndex][desSquare]
 		}
-		enPassantCaptureSquare := desSquare.Step(relativeDownStep)
-		enPassantCaptureBoard := Bitboard(1 << Bitboard(enPassantCaptureSquare))
-		*enemyPawnBoard ^= enPassantCaptureBoard
-		s.hashcode ^= squareHashes[enemyIndex+Pawn][enPassantCaptureSquare]
-		s.captureHistory.Push(enemyIndex+Pawn, s.ply)
+		specialMove := move.SpecialMove()
+		if specialMove == CastleSpecialMove {
+			rankIndex := Square(s.turn * 56)
+			rookSquare := Square(5 + rankIndex)
+			startingRookSquare := Square(7 + rankIndex)
+			if desSquare == Square(2) || desSquare == Square(58) {
+				s.castleAvailability[s.turn+2] = false
+				s.hashcode ^= castleHashes[s.turn+2]
+				s.castleHistory.Push(s.turn+2, s.ply)
+				rookSquare = Square(3 + rankIndex)
+				startingRookSquare = Square(0 + rankIndex)
+			} else {
+				s.castleAvailability[s.turn] = false
+				s.hashcode ^= castleHashes[s.turn]
+				s.castleHistory.Push(s.turn, s.ply)
+			}
+			s.board[friendIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
+			s.board[friendIndex+Rook] |= Bitboard(1 << Bitboard(rookSquare))
+			s.hashcode ^= squareHashes[friendIndex+Rook][startingRookSquare] ^ squareHashes[friendIndex+Rook][rookSquare]
+		} else if specialMove == PromotionSpecialMove {
+			s.hashcode ^= squareHashes[startBoardIndex][desSquare]
+			promotionType := move.PromotionType()
+			promotionBoard := &s.board[friendIndex+Queen]
+			if promotionType == RookPromotion {
+				promotionBoard = &s.board[friendIndex+Rook]
+				s.hashcode ^= squareHashes[friendIndex+Rook][desSquare]
+			} else if promotionType == KnightPromotion {
+				promotionBoard = &s.board[friendIndex+Knight]
+				s.hashcode ^= squareHashes[friendIndex+Knight][desSquare]
+			} else if promotionType == BishopPromotion {
+				promotionBoard = &s.board[friendIndex+Bishop]
+				s.hashcode ^= squareHashes[friendIndex+Bishop][desSquare]
+			} else {
+				s.hashcode ^= squareHashes[friendIndex+Queen][desSquare]
+			}
+			*promotionBoard |= desBoard
+			*startBoardPtr ^= desBoard
+		} else if specialMove == EnPassantSpacialMove {
+			enemyPawnBoard := &s.board[enemyIndex+Pawn]
+			relativeDownStep := DownStep
+			if s.turn == Black {
+				relativeDownStep = UpStep
+			}
+			enPassantCaptureSquare := desSquare.Step(relativeDownStep)
+			enPassantCaptureBoard := Bitboard(1 << Bitboard(enPassantCaptureSquare))
+			*enemyPawnBoard ^= enPassantCaptureBoard
+			s.hashcode ^= squareHashes[enemyIndex+Pawn][enPassantCaptureSquare]
+			s.captureHistory.Push(enemyIndex+Pawn, s.ply)
+		}
+		s.canEnpassant = false
+		s.enPassantSquare = Square(100)
+		if startBoardIndex == int(friendIndex)+Pawn {
+			rankDiff := startSquare.Rank() - desSquare.Rank()
+			if rankDiff == 2 || rankDiff == -2 {
+				if s.turn == 0 {
+					s.enPassantSquare = startSquare.Step(UpStep)
+				} else {
+					s.enPassantSquare = startSquare.Step(DownStep)
+				}
+				s.enPassantSquareHistory.Push(s.enPassantSquare, s.ply)
+				s.hashcode ^= enPassantHashes[s.enPassantSquare%8]
+				s.canEnpassant = true
+			}
+			if !isCapture {
+				s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
+				s.lastCapOrPawn = 0
+			}
+		} else if startBoardIndex == int(friendIndex)+King {
+			if s.castleAvailability[s.turn] {
+				s.castleAvailability[s.turn] = false
+				s.hashcode ^= castleHashes[s.turn]
+				s.castleHistory.Push(s.turn, s.ply)
+			}
+			if s.castleAvailability[s.turn+2] {
+				s.castleAvailability[s.turn+2] = false
+				s.hashcode ^= castleHashes[s.turn+2]
+				s.castleHistory.Push(s.turn+2, s.ply)
+			}
+		} else if startBoardIndex == int(friendIndex)+Rook {
+			if startSquare == Square(7+(8*s.turn)) && s.castleAvailability[s.turn] {
+				s.castleAvailability[s.turn] = false
+				s.hashcode ^= castleHashes[s.turn]
+				s.castleHistory.Push(s.turn, s.ply)
+			}
+			if startSquare == Square(8*s.turn) && s.castleAvailability[s.turn+2] {
+				s.castleAvailability[s.turn+2] = false
+				s.hashcode ^= castleHashes[s.turn+2]
+				s.castleHistory.Push(s.turn+2, s.ply)
+			}
+		}
+	} else {
+		s.canEnpassant = false
+		s.enPassantSquare = Square(100)
 	}
+	s.turn = 1 - s.turn
+	s.hashcode ^= blackHash
+	s.hashHistory.Push(s.hashcode)
 	enemyKingBoard := s.board[enemyIndex+King]
 	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]
 	bishopBoard := s.board[friendIndex+Bishop] | s.board[friendIndex+Queen]
@@ -167,50 +216,6 @@ func (s *State) MakeMove(move Move) {
 	pawnBoard := s.board[friendIndex+Pawn]
 	combinedBoard := bishopBoard | rookBoard | knightBoard | kingBoard | pawnBoard
 	friendSafetyCheck := &SafetyCheckBoards{bishopBoard, rookBoard, knightBoard, kingBoard, pawnBoard, combinedBoard}
-	s.canEnpassant = false
-	s.enPassantSquare = Square(100)
-	if startBoardIndex == int(friendIndex)+Pawn {
-		rankDiff := startSquare.Rank() - desSquare.Rank()
-		if rankDiff == 2 || rankDiff == -2 {
-			if s.turn == 0 {
-				s.enPassantSquare = startSquare.Step(UpStep)
-			} else {
-				s.enPassantSquare = startSquare.Step(DownStep)
-			}
-			s.enPassantSquareHistory.Push(s.enPassantSquare, s.ply)
-			s.hashcode ^= enPassantHashes[s.enPassantSquare%8]
-			s.canEnpassant = true
-		}
-		if !isCapture {
-			s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
-			s.lastCapOrPawn = 0
-		}
-	} else if startBoardIndex == int(friendIndex)+King {
-		if s.castleAvailability[s.turn] {
-			s.castleAvailability[s.turn] = false
-			s.hashcode ^= castleHashes[s.turn]
-			s.castleHistory.Push(s.turn, s.ply)
-		}
-		if s.castleAvailability[s.turn+2] {
-			s.castleAvailability[s.turn+2] = false
-			s.hashcode ^= castleHashes[s.turn+2]
-			s.castleHistory.Push(s.turn+2, s.ply)
-		}
-	} else if startBoardIndex == int(friendIndex)+Rook {
-		if startSquare == Square(7+(8*s.turn)) && s.castleAvailability[s.turn] {
-			s.castleAvailability[s.turn] = false
-			s.hashcode ^= castleHashes[s.turn]
-			s.castleHistory.Push(s.turn, s.ply)
-		}
-		if startSquare == Square(8*s.turn) && s.castleAvailability[s.turn+2] {
-			s.castleAvailability[s.turn+2] = false
-			s.hashcode ^= castleHashes[s.turn+2]
-			s.castleHistory.Push(s.turn+2, s.ply)
-		}
-	}
-	s.turn = 1 - s.turn
-	s.hashcode ^= blackHash
-	s.hashHistory.Push(s.hashcode)
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.ply++
 	s.repetitionMap.add(s.hashcode)
@@ -218,52 +223,54 @@ func (s *State) MakeMove(move Move) {
 
 func (s *State) UnMakeMove(move Move) {
 	s.repetitionMap.remove(s.hashcode)
-	var friendIndex uint8 = s.turn * 6
-	var enemyIndex uint8 = (1 - s.turn) * 6
-	startSquare := move.OriginSquare()
-	startBoard := Bitboard(1 << Bitboard(startSquare))
-	desSquare := move.DestinationSquare()
-	desBoard := Bitboard(1 << Bitboard(desSquare))
+	friendIndex := s.turn * 6
+	enemyIndex := (1 - s.turn) * 6
 	s.lastCapOrPawn -= 1
-	var desBoardPtr *Bitboard = nil
-	for i := enemyIndex; i < enemyIndex+6; i++ {
-		board := &s.board[i]
-		if *board&desBoard != 0 {
-			desBoardPtr = board
+	if move != PassingMove {
+		startSquare := move.OriginSquare()
+		startBoard := Bitboard(1 << Bitboard(startSquare))
+		desSquare := move.DestinationSquare()
+		desBoard := Bitboard(1 << Bitboard(desSquare))
+		var desBoardPtr *Bitboard = nil
+		for i := enemyIndex; i < enemyIndex+6; i++ {
+			board := &s.board[i]
+			if *board&desBoard != 0 {
+				desBoardPtr = board
+			}
 		}
-	}
-	*desBoardPtr |= startBoard
-	*desBoardPtr ^= desBoard
-	if s.ply-1 == s.captureHistory.MostRecentCapturePly() {
-		capture := s.captureHistory.Pop()
-		capturedPiece := capture.piece
-		captureBoardPtr := &s.board[capturedPiece]
-		*captureBoardPtr |= desBoard
-	}
-	specialMove := move.SpecialMove()
-	if specialMove == CastleSpecialMove {
-		rankIndex := Square((1 - s.turn) * 56)
-		startingRookSquare := Square(5 + rankIndex)
-		endingRookSquare := Square(7 + rankIndex)
-		if desSquare == Square(2) || desSquare == Square(58) {
-			startingRookSquare = Square(3 + rankIndex)
-			endingRookSquare = Square(0 + rankIndex)
+		*desBoardPtr |= startBoard
+		*desBoardPtr ^= desBoard
+		if s.ply-1 == s.captureHistory.MostRecentCapturePly() {
+			capture := s.captureHistory.Pop()
+			capturedPiece := capture.piece
+			captureBoardPtr := &s.board[capturedPiece]
+			*captureBoardPtr |= desBoard
 		}
-		s.board[enemyIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
-		s.board[enemyIndex+Rook] |= Bitboard(1 << Bitboard(endingRookSquare))
-	} else if specialMove == EnPassantSpacialMove {
-		relativeUpStep := UpStep
-		if s.turn == Black {
-			relativeUpStep = DownStep
+		specialMove := move.SpecialMove()
+		if specialMove == CastleSpecialMove {
+			rankIndex := Square((1 - s.turn) * 56)
+			startingRookSquare := Square(5 + rankIndex)
+			endingRookSquare := Square(7 + rankIndex)
+			if desSquare == Square(2) || desSquare == Square(58) {
+				startingRookSquare = Square(3 + rankIndex)
+				endingRookSquare = Square(0 + rankIndex)
+			}
+			s.board[enemyIndex+Rook] ^= Bitboard(1 << Bitboard(startingRookSquare))
+			s.board[enemyIndex+Rook] |= Bitboard(1 << Bitboard(endingRookSquare))
+		} else if specialMove == EnPassantSpacialMove {
+			relativeUpStep := UpStep
+			if s.turn == Black {
+				relativeUpStep = DownStep
+			}
+			enPassantSquare := desSquare.Step(relativeUpStep)
+			enPassantBoard := Bitboard(1 << Bitboard(enPassantSquare))
+			s.board[friendIndex+Pawn] ^= desBoard
+			s.board[friendIndex+Pawn] |= enPassantBoard
+		} else if specialMove == PromotionSpecialMove {
+			*desBoardPtr ^= startBoard
+			enemyPawnBoard := &s.board[enemyIndex+Pawn]
+			*enemyPawnBoard |= startBoard
 		}
-		enPassantSquare := desSquare.Step(relativeUpStep)
-		enPassantBoard := Bitboard(1 << Bitboard(enPassantSquare))
-		s.board[friendIndex+Pawn] ^= desBoard
-		s.board[friendIndex+Pawn] |= enPassantBoard
-	} else if specialMove == PromotionSpecialMove {
-		*desBoardPtr ^= startBoard
-		enemyPawnBoard := &s.board[enemyIndex+Pawn]
-		*enemyPawnBoard |= startBoard
 	}
 	if s.enPassantSquareHistory.MostRecentCapturePly() == s.ply-1 {
 		s.enPassantSquareHistory.Pop()
@@ -992,4 +999,31 @@ func (s *State) getPV() string {
 		stackPointer--
 	}
 	return pvString
+}
+
+func printHistoryTable(historyTable *HistoryTable) {
+	var totalSum uint64 = 0
+	for i := 0; i < 12; i++ {
+		for j := 0; j < 64; j++ {
+			totalSum += historyTable[i][j]
+		}
+	}
+	if totalSum == 0 {
+		fmt.Println("History table is empty.")
+		return
+	}
+	for gridIndex := 0; gridIndex < 12; gridIndex++ {
+		fmt.Printf("Grid %d:\n", gridIndex)
+		for row := 7; row >= 0; row-- {
+			for col := 0; col < 8; col++ {
+				index := row*8 + col
+				value := historyTable[gridIndex][index]
+				ratio := float64(value) / float64(totalSum)
+				formattedRatio := fmt.Sprintf("%6.3f", ratio)
+				fmt.Print(formattedRatio, " ")
+			}
+			fmt.Println()
+		}
+		fmt.Println()
+	}
 }

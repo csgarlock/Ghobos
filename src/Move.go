@@ -9,7 +9,8 @@ import "fmt"
 type Move uint16
 
 const (
-	NilMove Move = 0xffff
+	NilMove     Move = 0xffff
+	PassingMove Move = 0xdfff
 
 	BitMask12 uint16 = 0xfff
 	BitMask6  uint16 = 0x3f
@@ -43,6 +44,14 @@ func (m Move) SpecialMove() uint16 {
 
 func BuildMove(origin Square, destination Square, promotion uint16, specialMove uint16) Move {
 	return Move(origin) | (Move(destination) << 6) | (Move(promotion) << 12) | (Move(specialMove) << 14)
+}
+
+func BuildSimpleMove(origin Square, destination Square) Move {
+	return Move(origin) | (Move(destination) << 6)
+}
+
+func SimpleMoveFromString(moveString string) Move {
+	return BuildSimpleMove(SFS(moveString[0:2]), SFS(moveString[2:4]))
 }
 
 func sameSourceDes(move1 Move, move2 Move) bool {
