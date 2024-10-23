@@ -35,9 +35,9 @@ func UIGame() {
 	}
 	gameState := StartingFen()
 	gameOver := false
-	playerTurn := true
-	if playerSide == Black {
-		playerTurn = false
+	playerTurn := false
+	if playerSide == gameState.turn {
+		playerTurn = true
 	}
 	for !gameOver {
 		fmt.Println(gameState)
@@ -66,11 +66,11 @@ func UIGame() {
 								continue
 							}
 							promotionMap := map[string]int{"queen": QueenPromotion, "rook": RookPromotion, "bishop": BishopPromotion, "knight": KnightPromotion}
-							promotion, ok := promotionMap[promotionString]
+							promotion, ok := promotionMap[strings.ToLower(promotionString)]
 							if !ok {
 								fmt.Println("Invalid promotion")
 							} else {
-								foundMove = foundMove | (1 << promotion)
+								foundMove = BuildMove(foundMove.OriginSquare(), foundMove.DestinationSquare(), PromotionSpecialMove, uint16(promotion))
 								break
 							}
 						}
@@ -85,6 +85,22 @@ func UIGame() {
 			searchTime := GetUserFloat("How long would you like to search (in seconds)?: ")
 			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime * float64(time.Second)))
 			gameState.MakeMove(bestMove)
+		}
+		moves := gameState.quickGenMoves()
+		if len(*moves) == 0 {
+			if gameState.check {
+				if playerTurn {
+					fmt.Println("You Win")
+				} else {
+					fmt.Println("Ghobos Wins")
+				}
+			} else {
+				fmt.Println("Stalemate")
+			}
+		} else if gameState.lastCapOrPawn >= 100 {
+			fmt.Println("Draw by 50 move rule")
+		} else if gameState.repetitionMap.get(gameState.hashcode) >= 3 {
+			fmt.Println("Draw by 3 fold repetition")
 		}
 		playerTurn = !playerTurn
 	}
