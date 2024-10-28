@@ -3,7 +3,7 @@ package main
 const (
 	CentiPawn   int32 = 65536
 	PawnValue   int32 = CentiPawn * 100
-	BishopValue int32 = CentiPawn * 310
+	BishopValue int32 = CentiPawn * 325
 	KnightValue int32 = CentiPawn * 300
 	RookValue   int32 = CentiPawn * 500
 	QueenValue  int32 = CentiPawn * 900

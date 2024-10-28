@@ -88,6 +88,7 @@ func UIGame() {
 		}
 		moves := gameState.quickGenMoves()
 		if len(*moves) == 0 {
+			fmt.Println(gameState)
 			if gameState.check {
 				if playerTurn {
 					fmt.Println("You Win")
@@ -97,10 +98,15 @@ func UIGame() {
 			} else {
 				fmt.Println("Stalemate")
 			}
+			gameOver = true
 		} else if gameState.lastCapOrPawn >= 100 {
+			fmt.Println(gameState)
 			fmt.Println("Draw by 50 move rule")
+			gameOver = true
 		} else if gameState.repetitionMap.get(gameState.hashcode) >= 3 {
+			fmt.Println(gameState)
 			fmt.Println("Draw by 3 fold repetition")
+			gameOver = true
 		}
 		playerTurn = !playerTurn
 	}

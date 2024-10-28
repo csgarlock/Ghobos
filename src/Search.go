@@ -110,7 +110,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		_, ttNodeType := result.depthAndNode.parseDepthandNode()
 		if ttNodeType == TerminalNode {
 			s.searchParameters.trueDepth -= 1
-			return ttEval, NilMove
+			return clampInt32(ttEval, alpha, beta), NilMove
 		}
 		projectedBestMove = result.bestMove
 	} else if depth > 5 && !skipIID {
@@ -126,11 +126,11 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			eval := LowestEval + (int32(s.searchParameters.trueDepth) * CentiPawn)
 			transpositionTable.AddState(s, eval, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth -= 1
-			return eval, NilMove
+			return clampInt32(eval, alpha, beta), NilMove
 		} else {
 			transpositionTable.AddState(s, 0, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth -= 1
-			return 0, NilMove
+			return clampInt32(0, alpha, beta), NilMove
 		}
 	}
 	if !s.check && depth > 1 && !skipNull {
