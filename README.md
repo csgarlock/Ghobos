@@ -1,4 +1,5 @@
 
+
 ## Ghobos
 Ghobos is a chess engine written in Go. The original goal of the project was to learn how to use go, but has since evolved into a much longer term project. It is hard to give it an accurate ELO rating at this point but my best guess right now would be 1800-2000. It is currently possible to play against Ghobos in the console.
 
@@ -25,3 +26,10 @@ Ghobos currently has only very basic search features.
 
 #### Long Term Goals
 1. Implement a NNUE
+2. Implement Multithreading into the search
+
+### Known weaknesses
+1. Poor longer term strategic planning
+	- If unable to find some tactical plan in the short term it will often end up either shuffling pieces around or pushing a pawn
+	- Will often lock pawns in endgame when a direct path to promotion is unable to be found 
+2. Doesn't care about king safety unless the search reveals it to be detrimental
