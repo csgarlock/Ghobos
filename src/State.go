@@ -8,6 +8,7 @@ import (
 
 type KillerTable [][2]Move
 
+// TODO migrate to worker when added instead of being linked to a state
 type SearchParameters struct {
 	killerTable *KillerTable
 	trueDepth   int16 // The true depth from the root node

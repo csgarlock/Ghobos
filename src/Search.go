@@ -235,22 +235,6 @@ func (s *State) QuiescenceSearch(alpha int32, beta int32) (int32, Move) {
 }
 
 func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove Move) *[]Move {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		fmt.Println(err)
-	// 		fmt.Println(s)
-	// 		fmt.Println(s.fenString())
-	// 		fmt.Println(ttMove)
-	// 		for _, cap := range *captures {
-	// 			fmt.Println(cap.move.ShortString())
-	// 		}
-	// 		fmt.Println("Q start")
-	// 		for _, qu := range *quiets {
-	// 			fmt.Println(qu.move.ShortString())
-	// 		}
-	// 		panic("AHHH")
-	// 	}
-	// }()
 	sortedMoves := make([]Move, len(*captures)+len(*quiets))
 	totalIndex := 0
 	sort.Slice(*captures, func(i, j int) bool {
