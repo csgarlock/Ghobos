@@ -55,9 +55,6 @@ var bishopSteps [4]Step = [4]Step{UpRightStep, UpLeftStep, DownRightStep, DownLe
 var rookSteps [4]Step = [4]Step{RightStep, UpStep, LeftStep, DownStep}
 var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
 
-// Maps the basic 1 space steps to the opposite direction set. use step+9 as index
-var oppositeSteps [19]Step = [19]Step{}
-
 var squareToSquareStep [64][64]Step = [64][64]Step{}
 
 var stepboards [16][64]bool = [16][64]bool{}
@@ -122,14 +119,6 @@ func InitializeStepBoard() {
 			}
 		}
 	}
-	oppositeSteps[RightStep+9] = LeftStep
-	oppositeSteps[UpRightStep+9] = DownLeftStep
-	oppositeSteps[UpStep+9] = DownStep
-	oppositeSteps[UpLeftStep+9] = DownRightStep
-	oppositeSteps[LeftStep+9] = RightStep
-	oppositeSteps[DownLeftStep+9] = UpRightStep
-	oppositeSteps[DownStep+9] = UpStep
-	oppositeSteps[DownRightStep+9] = UpLeftStep
 	for i := Square(0); i < 64; i++ {
 		for j := Square(0); j < 64; j++ {
 			if i != j {
@@ -213,9 +202,4 @@ func GetPawnMoves(square Square, occupied Bitboard, moveStep Step, homeRank int8
 		resultBoard |= (1 << Bitboard(square))
 	}
 	return resultBoard
-}
-
-// Only works for steps of length 1 in the 8 cardinal directions. Other inputs are undefined
-func (s Step) getOppositeStep() Step {
-	return oppositeSteps[s+9]
 }

@@ -81,6 +81,10 @@ func BitCount(b Bitboard) int {
 	return int(bits.OnesCount64(uint64(b)))
 }
 
+func boardFromSquare(s Square) Bitboard {
+	return 1 << Bitboard(s)
+}
+
 func NewSubsetIterator(d Bitboard) *SubsetIterator {
 	return &SubsetIterator{n: 0, d: d}
 }

@@ -21,8 +21,8 @@ type State struct {
 	sideOccupied           [2]Bitboard
 	occupied               Bitboard
 	notOccupied            Bitboard
-	pinnedBoard            Bitboard
-	pinners                [8]Square
+	pinnedBoards           [2]Bitboard
+	pinners                [2][8]Square
 	turn                   uint8 // 0 for White, 1 for Black
 	enPassantSquare        Square
 	check                  bool
@@ -47,11 +47,6 @@ type SafetyCheckBoards struct {
 	kingBoard     Bitboard
 	pawnsBoard    Bitboard
 	combinedBoard Bitboard
-}
-
-type PinSafety struct {
-	key         Square
-	safeSquares Bitboard
 }
 
 type QuietMove struct {
@@ -368,7 +363,6 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	kingSquare := PopLSB(&kingBoard)
 	enemyBishopSliders := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
 	enemyRookSliders := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
-	pinnedBoard, pinSafetys := s.getKingPins(kingSquare, enemyBishopSliders, enemyRookSliders)
 	safetyCheckBoard := &SafetyCheckBoards{enemyBishopSliders, enemyRookSliders, s.board[enemyIndex+Knight], s.board[enemyIndex+King], s.board[enemyIndex+Pawn], enemyBoard}
 	checkBlockerSquares := UniversalBitboard
 	enPassantCheckBlockerSquares := UniversalBitboard
@@ -378,7 +372,24 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	// Start Bishop
 	if checkBlockerSquares != EmptyBitboard {
 		bishopBoard := s.board[friendIndex+Bishop]
-		genSliderMoves(s, includeQuiets, Bishop, bishopBoard, &captures, &quiets, getBishopMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		for bishopBoard != 0 {
+			sliderSquare := PopLSB(&bishopBoard)
+			safeSquares := s.getPinBoard(sliderSquare, kingSquare, s.turn)
+			sliderMoves := getBishopMoves(sliderSquare, s.occupied)
+			sliderAttacks := sliderMoves & s.sideOccupied[1-s.turn] & safeSquares & checkBlockerSquares
+			for sliderAttacks != 0 {
+				attackSquare := PopLSB(&sliderAttacks)
+				attackedPiece := s.board.getPieceAt(attackSquare)
+				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[friendIndex+Bishop]})
+			}
+			if includeQuiets {
+				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
+				for sliderQuiets != 0 {
+					quietSquare := PopLSB(&sliderQuiets)
+					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Bishop][quietSquare]})
+				}
+			}
+		}
 	}
 	// End Bishop
 	// Start Knight
@@ -387,7 +398,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 		knightBoard := s.board[pieceIndex]
 		for knightBoard != 0 {
 			knightSquare := PopLSB(&knightBoard)
-			if pinnedBoard&(1<<Bitboard(knightSquare)) == 0 {
+			if s.pinnedBoards[s.turn]&(1<<Bitboard(knightSquare)) == 0 {
 				knightMoves := moveBoards[Knight][knightSquare]
 				knightAttacks := knightMoves & enemyBoard & checkBlockerSquares
 				for knightAttacks != 0 {
@@ -409,13 +420,47 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	// Start Queen
 	if checkBlockerSquares != EmptyBitboard {
 		queenBoard := s.board[friendIndex+Queen]
-		genSliderMoves(s, includeQuiets, Queen, queenBoard, &captures, &quiets, getQueenMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		for queenBoard != 0 {
+			sliderSquare := PopLSB(&queenBoard)
+			safeSquares := s.getPinBoard(sliderSquare, kingSquare, s.turn)
+			sliderMoves := getQueenMoves(sliderSquare, s.occupied)
+			sliderAttacks := sliderMoves & s.sideOccupied[1-s.turn] & safeSquares & checkBlockerSquares
+			for sliderAttacks != 0 {
+				attackSquare := PopLSB(&sliderAttacks)
+				attackedPiece := s.board.getPieceAt(attackSquare)
+				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[friendIndex+Queen]})
+			}
+			if includeQuiets {
+				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
+				for sliderQuiets != 0 {
+					quietSquare := PopLSB(&sliderQuiets)
+					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Queen][quietSquare]})
+				}
+			}
+		}
 	}
 	// End Queen
 	// Start Rook
 	if checkBlockerSquares != EmptyBitboard {
 		rookBoard := s.board[friendIndex+Rook]
-		genSliderMoves(s, includeQuiets, Rook, rookBoard, &captures, &quiets, getRookMoves, pinnedBoard, pinSafetys, checkBlockerSquares)
+		for rookBoard != 0 {
+			sliderSquare := PopLSB(&rookBoard)
+			safeSquares := s.getPinBoard(sliderSquare, kingSquare, s.turn)
+			sliderMoves := getRookMoves(sliderSquare, s.occupied)
+			sliderAttacks := sliderMoves & s.sideOccupied[1-s.turn] & safeSquares & checkBlockerSquares
+			for sliderAttacks != 0 {
+				attackSquare := PopLSB(&sliderAttacks)
+				attackedPiece := s.board.getPieceAt(attackSquare)
+				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[friendIndex+Rook]})
+			}
+			if includeQuiets {
+				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
+				for sliderQuiets != 0 {
+					quietSquare := PopLSB(&sliderQuiets)
+					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Rook][quietSquare]})
+				}
+			}
+		}
 	}
 	// End Rook
 	// Start Pawn
@@ -432,28 +477,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 		}
 		for pawnBoard != 0 {
 			pawnSquare := PopLSB(&pawnBoard)
-			var safeBoard Bitboard = UniversalBitboard
-			if pinnedBoard&(1<<Bitboard(pawnSquare)) != 0 {
-				pinFound := false
-				doublePinned := false
-				var squarePinSafety PinSafety
-				for _, pinSafety := range *pinSafetys {
-					if pinSafety.key == pawnSquare {
-						if pinFound {
-							doublePinned = true
-							break
-						} else {
-							pinFound = true
-							squarePinSafety = pinSafety
-						}
-					}
-					if doublePinned {
-						safeBoard = EmptyBitboard
-					} else {
-						safeBoard = squarePinSafety.safeSquares
-					}
-				}
-			}
+			safeBoard := s.getPinBoard(pawnSquare, kingSquare, s.turn)
 			pawnAttacks := pawnAttackBoards[s.turn][pawnSquare] & enemyEnPassantBoard & safeBoard & (checkBlockerSquares | enPassantCheckBlockerSquares)
 			for pawnAttacks != 0 {
 				attackSquare := PopLSB(&pawnAttacks)
@@ -545,93 +569,13 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	return &captures, &quiets
 }
 
-func (s *State) getKingPins(kingSquare Square, bishopBoard Bitboard, rookBoard Bitboard) (Bitboard, *[]PinSafety) {
-	pinSafetys := make([]PinSafety, 0, 8)
-	var pinnedBoard Bitboard = 0
-	friendBoard := s.sideOccupied[s.turn]
-	enemyBoard := s.sideOccupied[1-s.turn]
-	for _, step := range queenSteps {
-		if kingSquare.tryStep(step) {
-			possiblePinners := bishopBoard
-			if step == UpStep || step == RightStep || step == DownStep || step == LeftStep {
-				possiblePinners = rookBoard
-			}
-			nonPinners := enemyBoard & (^possiblePinners)
-			stepSquare := kingSquare
-			pinnedFound := false
-			doubleBlocked := false
-			enemyFound := false
-			var pinnedSquare Square
-			var safeSquares Bitboard = 0
-			for stepSquare.tryStep(step) {
-				stepSquare = stepSquare.Step(step)
-				stepBoard := Bitboard(1 << stepSquare)
-				safeSquares |= stepBoard
-				if friendBoard&stepBoard != 0 {
-					if pinnedFound {
-						doubleBlocked = true
-						break
-					} else {
-						pinnedFound = true
-						pinnedSquare = stepSquare
-					}
-				}
-				if possiblePinners&stepBoard != 0 {
-					enemyFound = true
-					break
-				}
-				if nonPinners&stepBoard != 0 {
-					break
-				}
-			}
-			if pinnedFound && enemyFound && (!doubleBlocked) {
-				pin := Bitboard(1 << pinnedSquare)
-				pinnedBoard |= pin
-				pinSafetys = append(pinSafetys, PinSafety{pinnedSquare, safeSquares})
-			}
-		}
+// Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king expose
+func (s *State) getPinBoard(pinnedSquare Square, kingSquare Square, perspective uint8) Bitboard {
+	if s.pinnedBoards[perspective]&boardFromSquare(pinnedSquare) != 0 {
+		pinnerSquare := s.pinners[1-perspective][stepMap[squareToSquareStep[pinnedSquare][kingSquare]]]
+		return lineBoards[pinnedSquare][kingSquare] | lineBoards[pinnedSquare][pinnerSquare] | boardFromSquare(pinnerSquare)
 	}
-	return pinnedBoard, &pinSafetys
-}
-
-func genSliderMoves(s *State, includeQuiets bool, piece uint8, board Bitboard, captures *[]CaptureMove, quiets *[]QuietMove, magicRetriever func(Square, Bitboard) Bitboard, pinnedBoard Bitboard, pinSafetys *[]PinSafety, checkBlockerSquares Bitboard) {
-	for board != 0 {
-		safeSquares := UniversalBitboard
-		sliderSquare := PopLSB(&board)
-		if pinnedBoard&(1<<Bitboard(sliderSquare)) != 0 {
-			pinFound := false
-			doublePinned := false
-			var squarePinSafety PinSafety
-			for _, pinSafety := range *pinSafetys {
-				if pinSafety.key == sliderSquare {
-					if pinFound {
-						doublePinned = true
-						break
-					} else {
-						pinFound = true
-						squarePinSafety = pinSafety
-					}
-				}
-			}
-			if pinFound && !doublePinned {
-				safeSquares = squarePinSafety.safeSquares
-			}
-		}
-		sliderMoves := magicRetriever(sliderSquare, s.occupied)
-		sliderAttacks := sliderMoves & s.sideOccupied[1-s.turn] & safeSquares & checkBlockerSquares
-		for sliderAttacks != 0 {
-			attackSquare := PopLSB(&sliderAttacks)
-			attackedPiece := s.board.getPieceAt(attackSquare)
-			*captures = append(*captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[piece]})
-		}
-		if includeQuiets {
-			sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
-			for sliderQuiets != 0 {
-				quietSquare := PopLSB(&sliderQuiets)
-				*quiets = append(*quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[piece][quietSquare]})
-			}
-		}
-	}
+	return UniversalBitboard
 }
 
 func isSquareSafe(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckBoards, turn uint8) bool {
