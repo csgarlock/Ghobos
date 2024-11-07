@@ -21,6 +21,8 @@ type State struct {
 	sideOccupied           [2]Bitboard
 	occupied               Bitboard
 	notOccupied            Bitboard
+	pinnedBoard            Bitboard
+	pinners                [8]Square
 	turn                   uint8 // 0 for White, 1 for Black
 	enPassantSquare        Square
 	check                  bool

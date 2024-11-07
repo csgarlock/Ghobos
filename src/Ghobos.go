@@ -9,8 +9,19 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	SetupTable(1024)
-	PerftTester()
+	setupLineBoards()
+	SetupTable(16)
+	fmt.Println(lineBoards[19][19])
+	fmt.Println(lineBoards[19][46])
+	fmt.Println(lineBoards[19][20])
+	fmt.Println(lineBoards[27][6])
+	fmt.Println(lineBoards[19][3])
+	fmt.Println(lineBoards[19][1])
+	fmt.Println(lineBoards[19][17])
+	fmt.Println(lineBoards[19][33])
+	fmt.Println(lineBoards[19][35])
+	fmt.Println(lineBoards[19][58])
+	//PerftTester()
 }
 
 func UIGame() {

@@ -40,6 +40,8 @@ const (
 var ranks [8]Bitboard = [8]Bitboard{Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7}
 var files [8]Bitboard = [8]Bitboard{File0, File1, File2, File3, File4, File5, File6, File7}
 
+var lineBoards [64][64]Bitboard = [64][64]Bitboard{}
+
 func SFS(square string) Square {
 	rank, _ := strconv.Atoi(string(square[1]))
 	rank--
@@ -90,6 +92,21 @@ func (sI *SubsetIterator) nextSubset() Bitboard {
 
 func (sI *SubsetIterator) getSubset() Bitboard {
 	return sI.n
+}
+
+func setupLineBoards() {
+	for i := Square(0); i < 63; i++ {
+		for j := Square(0); j < 63; j++ {
+			step := squareToSquareStep[i][j]
+			if step != 0 {
+				square := i.Step(step)
+				for square != j {
+					lineBoards[i][j] |= Bitboard(1 << Bitboard(square))
+					square = square.Step(step)
+				}
+			}
+		}
+	}
 }
 
 func (b Bitboard) String() string {
