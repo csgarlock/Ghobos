@@ -58,14 +58,6 @@ func sameSourceDes(move1 Move, move2 Move) bool {
 	return (move1 & Move(BitMask12)) == (move2 & Move(BitMask12))
 }
 
-func (s *State) moveIsCapture(move Move) bool {
-	if s.board.getColorPieceAt(move.DestinationSquare(), 1-s.turn) != NoPiece {
-		return true
-	} else {
-		return false
-	}
-}
-
 func (m Move) String() string {
 	result := ""
 	result += m.OriginSquare().String() + " To " + m.DestinationSquare().String() + "\n"

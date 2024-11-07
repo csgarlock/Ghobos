@@ -89,7 +89,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 			lastSearchNodes = nodesSearched
 		}
 	}
-	fmt.Println("Excpected Moves: ", s.getPV())
+	fmt.Println("Expected Moves: ", s.getPV())
 	return bestFoundMove
 }
 
