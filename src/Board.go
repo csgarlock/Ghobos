@@ -12,6 +12,7 @@ const (
 
 type Board [12]Bitboard
 
+// Inclusive on both sides
 func (b *Board) getPieceAtRanged(s Square, min uint8, max uint8) uint8 {
 	for i := min; i <= max; i++ {
 		if b[i]&(1<<Bitboard(s)) != EmptyBitboard {

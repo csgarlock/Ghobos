@@ -35,12 +35,18 @@ const (
 	File5 Bitboard = File0 << 5
 	File6 Bitboard = File0 << 6
 	File7 Bitboard = File0 << 7
+
+	NullSquare Square = 100
 )
 
 var ranks [8]Bitboard = [8]Bitboard{Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7}
 var files [8]Bitboard = [8]Bitboard{File0, File1, File2, File3, File4, File5, File6, File7}
 
-var lineBoards [64][64]Bitboard = [64][64]Bitboard{}
+// Does not include starting or ending square
+var squareToSquareFillBoards [64][64]Bitboard = [64][64]Bitboard{}
+
+// Does not include starting square
+var squareToEdgeFillBoards [8][64]Bitboard = [8][64]Bitboard{}
 
 func SFS(square string) Square {
 	rank, _ := strconv.Atoi(string(square[1]))
@@ -71,10 +77,18 @@ func PopLSB(b *Bitboard) Square {
 	return lsb
 }
 
+func GetLSB(b Bitboard) Square {
+	return Square(bits.TrailingZeros64(uint64(b)))
+}
+
 func PopMSB(b *Bitboard) Square {
 	msb := 63 - Square(bits.LeadingZeros64(uint64(*b)))
 	*b ^= (1 << Bitboard(msb))
 	return msb
+}
+
+func GetMSB(b Bitboard) Square {
+	return 63 - Square(bits.LeadingZeros64(uint64(b)))
 }
 
 func BitCount(b Bitboard) int {
@@ -98,16 +112,30 @@ func (sI *SubsetIterator) getSubset() Bitboard {
 	return sI.n
 }
 
-func setupLineBoards() {
-	for i := Square(0); i < 63; i++ {
-		for j := Square(0); j < 63; j++ {
+func setupFillBoards() {
+	for i := Square(0); i < 64; i++ {
+		for j := Square(0); j < 64; j++ {
 			step := squareToSquareStep[i][j]
 			if step != 0 {
 				square := i.Step(step)
 				for square != j {
-					lineBoards[i][j] |= Bitboard(1 << Bitboard(square))
+					squareToSquareFillBoards[i][j] |= Bitboard(1 << Bitboard(square))
 					square = square.Step(step)
 				}
+			}
+		}
+	}
+	for i := Step(0); i < 8; i++ {
+		step := cardinalSteps[i]
+		for j := Square(0); j < 64; j++ {
+			square := j
+			for square.tryStep(step) {
+				square = square.Step(step)
+			}
+			if square != j {
+				squareToEdgeFillBoards[i][j] = squareToSquareFillBoards[j][square] | boardFromSquare(square)
+			} else {
+				squareToEdgeFillBoards[i][j] = squareToSquareFillBoards[j][square]
 			}
 		}
 	}
@@ -130,6 +158,9 @@ func (b Bitboard) String() string {
 }
 
 func (s Square) String() string {
+	if s == NullSquare {
+		return "NS"
+	}
 	fileMap := [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
 	rank := s.Rank()
 	file := s.File()

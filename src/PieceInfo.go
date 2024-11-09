@@ -48,9 +48,8 @@ const (
 var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2, UpLeftStep: 3, LeftStep: 4, DownLeftStep: 5, DownStep: 6, DownRightStep: 7, KnightStepRightUp: 8, KnightStepUpRight: 9, KnightStepUpLeft: 10, KnightStepLeftUp: 11, KnightStepLeftDown: 12, KnightStepDownLeft: 13, KnightStepDownRight: 14, KnightStepRightDown: 15}
 
 var allSteps [16]Step = [16]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep, KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
-var kingSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
+var cardinalSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
 
-var queenSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
 var bishopSteps [4]Step = [4]Step{UpRightStep, UpLeftStep, DownRightStep, DownLeftStep}
 var rookSteps [4]Step = [4]Step{RightStep, UpStep, LeftStep, DownStep}
 var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
@@ -62,6 +61,9 @@ var stepboards [16][64]bool = [16][64]bool{}
 var moveBoards [5][64]Bitboard = [5][64]Bitboard{}
 var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
 
+// Can the piece do the slide (canSlide[pieceID][stepID])
+var canSlide [12][8]bool = [12][8]bool{}
+
 func InitializeMoveBoards() {
 	InitializeStepBoard()
 	FillSlidingAttacks(&bishopSteps, &moveBoards[Bishop])
@@ -70,7 +72,7 @@ func InitializeMoveBoards() {
 	var square Square
 	for square = 0; square < 64; square++ {
 		var bitboard Bitboard = EmptyBitboard
-		for _, step := range kingSteps {
+		for _, step := range cardinalSteps {
 			if square.tryStep(step) {
 				bitboard |= 1 << square.Step(step)
 			}
@@ -100,6 +102,17 @@ func InitializeMoveBoards() {
 		}
 		pawnAttackBoards[White][square] = whitePawnAttacks
 		pawnAttackBoards[Black][square] = blackPawnAttacks
+	}
+	for i := uint8(0); i < 12; i++ {
+		if isSlider(i) {
+			if i%6 == Queen {
+				canSlide[i] = [8]bool{true, true, true, true, true, true, true, true}
+			} else if i%6 == Rook {
+				canSlide[i] = [8]bool{true, false, true, false, true, false, true, false}
+			} else if i%6 == Bishop {
+				canSlide[i] = [8]bool{false, true, false, true, false, true, false, true}
+			}
+		}
 	}
 }
 
@@ -202,4 +215,12 @@ func GetPawnMoves(square Square, occupied Bitboard, moveStep Step, homeRank int8
 		resultBoard |= (1 << Bitboard(square))
 	}
 	return resultBoard
+}
+
+func isSlider(id uint8) bool {
+	pieceId := id % 6
+	if pieceId > King && pieceId < Knight {
+		return true
+	}
+	return false
 }

@@ -9,19 +9,19 @@ import (
 func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
-	setupLineBoards()
+	setupFillBoards()
 	SetupTable(16)
-	fmt.Println(lineBoards[19][19])
-	fmt.Println(lineBoards[19][46])
-	fmt.Println(lineBoards[19][20])
-	fmt.Println(lineBoards[27][6])
-	fmt.Println(lineBoards[19][3])
-	fmt.Println(lineBoards[19][1])
-	fmt.Println(lineBoards[19][17])
-	fmt.Println(lineBoards[19][33])
-	fmt.Println(lineBoards[19][35])
-	fmt.Println(lineBoards[19][58])
-	//PerftTester()
+	// game := FenState("rnb1kbnr/ppppqppp/8/4p3/8/N4P2/PPPPP1PP/R1BQKBNR w KQkq - 1 3")
+	// fmt.Println(game)
+	// fmt.Println(game.pinnedBoards[0])
+	// fmt.Println(game.pinnedBoards[1])
+	// for i := range 2 {
+	// 	fmt.Println()
+	// 	for j := range 8 {
+	// 		fmt.Println(game.pinners[i][j])
+	// 	}
+	// }
+	PerftTester()
 }
 
 func UIGame() {
