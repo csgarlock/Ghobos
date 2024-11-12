@@ -14,6 +14,12 @@ type SearchParameters struct {
 	trueDepth   int16 // The true depth from the root node
 }
 
+type PinInfo struct {
+	pinnedBoards [2]Bitboard
+	pinners      [2][8]Square
+	pinsSet      [2]bool
+}
+
 // 0 = White King Side, 1 = Black King Side, 2 = White Queen Side, 3 = Black Queen Side
 type CastleAvailability [4]bool
 type State struct {
@@ -21,8 +27,7 @@ type State struct {
 	sideOccupied           [2]Bitboard
 	occupied               Bitboard
 	notOccupied            Bitboard
-	pinnedBoards           [2]Bitboard
-	pinners                [2][8]Square
+	pinInfo                PinInfo
 	turn                   uint8 // 0 for White, 1 for Black
 	enPassantSquare        Square
 	check                  bool
@@ -201,9 +206,8 @@ func (s *State) MakeMove(move Move) {
 		}
 		s.occupied = s.sideOccupied[0] | s.sideOccupied[1]
 		s.notOccupied = ^s.occupied
-		s.clearPins(White)
-		s.clearPins(Black)
-		s.reCalcPins(&[2][8]bool{{true, true, true, true, true, true, true, true}, {true, true, true, true, true, true, true, true}})
+		s.pinInfo.pinsSet[0] = false
+		s.pinInfo.pinsSet[1] = false
 	} else {
 		s.canEnpassant = false
 		s.enPassantSquare = Square(100)
@@ -309,10 +313,9 @@ func (s *State) UnMakeMove(move Move) {
 	}
 	s.occupied = s.sideOccupied[0] | s.sideOccupied[1]
 	s.notOccupied = ^s.occupied
-	s.clearPins(White)
-	s.clearPins(Black)
-	s.reCalcPins(&[2][8]bool{{true, true, true, true, true, true, true, true}, {true, true, true, true, true, true, true, true}})
 	s.turn = 1 - s.turn
+	s.pinInfo.pinsSet[0] = false
+	s.pinInfo.pinsSet[1] = false
 	enemyKingBoard := s.board[enemyIndex+King]
 	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]
 	bishopBoard := s.board[friendIndex+Bishop] | s.board[friendIndex+Queen]
@@ -328,44 +331,63 @@ func (s *State) UnMakeMove(move Move) {
 	s.hashcode = s.hashHistory.Peek()
 }
 
-// calc is short for calculator by the way
-func (s *State) reCalcPins(reCalcSteps *[2][8]bool) {
-	sliders := [2]Bitboard{s.board[WhiteBishop] | s.board[WhiteRook] | s.board[WhiteQueen], s.board[BlackBishop] | s.board[BlackRook] | s.board[BlackQueen]}
-	for side := uint8(0); side < 2; side++ {
-		kingSquare := GetLSB(s.board[(side*6)+King])
-		queenCast := getQueenMoves(kingSquare, s.sideOccupied[1-side])
-		for step := 0; step < 8; step++ {
-			if reCalcSteps[side][step] {
-				mask := squareToEdgeFillBoards[step][kingSquare]
-				stepRay := queenCast & mask
-				if stepRay&sliders[1-side] != 0 {
-					sliderSquare := GetLSB(stepRay & sliders[1-side])
-					offset := (1 - side) * 6
-					sliderType := s.board.getPieceAtRanged(sliderSquare, offset+Queen, offset+Bishop)
-					if canSlide[sliderType][step] {
-						if BitCount(stepRay&s.sideOccupied[side]) == 1 {
-							s.pinnedBoards[side] |= boardFromSquare(GetLSB(stepRay & s.sideOccupied[side]))
-							s.pinners[side][step] = sliderSquare
-						} else {
-							s.pinnedBoards[side] &= ^mask
-							s.pinners[side][step] = NullSquare
-						}
-					} else {
-						s.pinnedBoards[side] &= ^mask
-						s.pinners[side][step] = NullSquare
+func (s *State) clearPins(perspective uint8) {
+	s.pinInfo.pinnedBoards[perspective] = EmptyBitboard
+	s.pinInfo.pinners[perspective] = [8]Square{NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare}
+}
+
+// Check for possible pins by interating through sliding pieces instead of by checking in all directions from the king like a doofus because 5 < 8
+func (s *State) ensurePins(perspective uint8) {
+	if !s.pinInfo.pinsSet[perspective] {
+		s.clearPins(perspective)
+		enemyIndex := uint8((1 - perspective) * 6)
+		kingSquare := GetLSB(s.board[(6*perspective)+King])
+		bishopBoard := s.board[enemyIndex+Bishop]
+		for bishopBoard != EmptyBitboard {
+			bishopSquare := PopLSB(&bishopBoard)
+			step := squareToSquareStep[kingSquare][bishopSquare]
+			if step != 0 {
+				stepID := stepMap[step]
+				if stepID%2 == 1 {
+					rayCast := squareToSquareFillBoards[kingSquare][bishopSquare]
+					intersection := rayCast & s.sideOccupied[perspective]
+					if BitCount(intersection) == 1 && rayCast&s.sideOccupied[1-perspective] == 0 {
+						s.pinInfo.pinnedBoards[perspective] |= intersection
+						s.pinInfo.pinners[perspective][stepID] = bishopSquare
 					}
-				} else {
-					s.pinnedBoards[side] &= ^mask
-					s.pinners[side][step] = NullSquare
+				}
+			}
+		}
+		rookBoard := s.board[enemyIndex+Rook]
+		for rookBoard != EmptyBitboard {
+			rookSquare := PopLSB(&rookBoard)
+			step := squareToSquareStep[kingSquare][rookSquare]
+			if step != 0 {
+				stepID := stepMap[step]
+				if stepID%2 == 0 {
+					rayCast := squareToSquareFillBoards[kingSquare][rookSquare]
+					intersection := rayCast & s.sideOccupied[perspective]
+					if BitCount(intersection) == 1 && rayCast&s.sideOccupied[1-perspective] == 0 {
+						s.pinInfo.pinnedBoards[perspective] |= intersection
+						s.pinInfo.pinners[perspective][stepID] = rookSquare
+					}
+				}
+			}
+		}
+		queenBoard := s.board[enemyIndex+Queen]
+		for queenBoard != EmptyBitboard {
+			queenSquare := PopLSB(&queenBoard)
+			step := squareToSquareStep[kingSquare][queenSquare]
+			if step != 0 {
+				rayCast := squareToSquareFillBoards[kingSquare][queenSquare]
+				intersection := rayCast & s.sideOccupied[perspective]
+				if BitCount(intersection) == 1 && rayCast&s.sideOccupied[1-perspective] == 0 {
+					s.pinInfo.pinnedBoards[perspective] |= intersection
+					s.pinInfo.pinners[perspective][stepMap[step]] = queenSquare
 				}
 			}
 		}
 	}
-}
-
-func (s *State) clearPins(perspective uint8) {
-	s.pinnedBoards[perspective] = EmptyBitboard
-	s.pinners[perspective] = [8]Square{NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare}
 }
 
 func (s *State) quickGenMoves() *[]Move {
@@ -397,6 +419,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	// We want the pop function to pop the the bits at the top of the board relative to whos turn
 	// it is. So when it's white's turn we pop the most significant bit first and with black
 	// we pop the least significant bit first
+	s.ensurePins(s.turn)
 	captures := make([]CaptureMove, 0, 20)
 	quiets := make([]QuietMove, 0, 20)
 	var friendIndex uint8 = s.turn * 6
@@ -444,7 +467,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 		knightBoard := s.board[pieceIndex]
 		for knightBoard != 0 {
 			knightSquare := PopLSB(&knightBoard)
-			if s.pinnedBoards[s.turn]&(1<<Bitboard(knightSquare)) == 0 {
+			if s.pinInfo.pinnedBoards[s.turn]&(1<<Bitboard(knightSquare)) == 0 {
 				knightMoves := moveBoards[Knight][knightSquare]
 				knightAttacks := knightMoves & enemyBoard & checkBlockerSquares
 				for knightAttacks != 0 {
@@ -617,17 +640,8 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 
 // Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king expose
 func (s *State) getPinBoard(pinnedSquare Square, kingSquare Square, perspective uint8) Bitboard {
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println("Output from getPinBoard")
-			fmt.Println(pinnedSquare)
-			fmt.Println(kingSquare)
-			fmt.Println(perspective)
-			panic("AHHH")
-		}
-	}()
-	if s.pinnedBoards[perspective]&boardFromSquare(pinnedSquare) != 0 {
-		pinnerSquare := s.pinners[perspective][stepMap[squareToSquareStep[kingSquare][pinnedSquare]]]
+	if s.pinInfo.pinnedBoards[perspective]&boardFromSquare(pinnedSquare) != 0 {
+		pinnerSquare := s.pinInfo.pinners[perspective][stepMap[squareToSquareStep[kingSquare][pinnedSquare]]]
 		return squareToSquareFillBoards[pinnedSquare][kingSquare] | squareToSquareFillBoards[pinnedSquare][pinnerSquare] | boardFromSquare(pinnerSquare)
 	}
 	return UniversalBitboard
@@ -895,12 +909,12 @@ func FenState(fenString string) *State {
 	fiftyMoveRule := newFiftyMoveRuleHistory(104)
 	repetitionMap := make(RepetitionMap, 50)
 	hashHistory := NewHashHistory(5)
-	pinnedBoards := [2]Bitboard{}
-	pinners := [2][8]Square{}
-	s := &State{board: board, sideOccupied: sideOccupied, occupied: occupied, notOccupied: ^occupied, pinnedBoards: pinnedBoards, pinners: pinners, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, hashHistory: hashHistory, searchParameters: searchParameters}
+	pinInfo := PinInfo{pinnedBoards: [2]Bitboard{}, pinners: [2][8]Square{}, pinsSet: [2]bool{false, false}}
+	s := &State{board: board, sideOccupied: sideOccupied, occupied: occupied, notOccupied: ^occupied, pinInfo: pinInfo, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, hashHistory: hashHistory, searchParameters: searchParameters}
 	s.hashcode = s.hash()
 	s.hashHistory.Push(s.hashcode)
-	s.reCalcPins(&[2][8]bool{{true, true, true, true, true, true, true, true}, {true, true, true, true, true, true, true, true}})
+	s.ensurePins(White)
+	s.ensurePins(Black)
 	return s
 }
 

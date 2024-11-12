@@ -11,16 +11,17 @@ func main() {
 	InitializeEvalVariables()
 	setupFillBoards()
 	SetupTable(16)
-	// game := FenState("rnb1kbnr/ppppqppp/8/4p3/8/N4P2/PPPPP1PP/R1BQKBNR w KQkq - 1 3")
+	// game := FenState("r1bqkbnr/pppppppp/8/2n5/3P4/8/PPPKPPPP/RNBQ1BNR w kq - 3 3")
 	// fmt.Println(game)
-	// fmt.Println(game.pinnedBoards[0])
-	// fmt.Println(game.pinnedBoards[1])
+	// fmt.Println(game.pinInfo.pinnedBoards[0])
+	// fmt.Println(game.pinInfo.pinnedBoards[1])
 	// for i := range 2 {
 	// 	fmt.Println()
 	// 	for j := range 8 {
-	// 		fmt.Println(game.pinners[i][j])
+	// 		fmt.Println(game.pinInfo.pinners[i][j])
 	// 	}
 	// }
+	// PerftChecker(5, StartingFen())
 	PerftTester()
 }
 

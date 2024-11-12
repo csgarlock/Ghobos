@@ -35,21 +35,6 @@ func PerftTester() {
 }
 
 func PerftRunner(depth int64, s *State, expectedCount int64) {
-	defer func() {
-		if err := recover(); err != nil {
-			fmt.Println(s)
-			fmt.Println(s.fenString())
-			fmt.Println(s.pinnedBoards[0])
-			fmt.Println(s.pinnedBoards[1])
-			for i := range 2 {
-				fmt.Println()
-				for j := range 8 {
-					fmt.Println(s.pinners[i][j])
-				}
-			}
-			panic("AHHHH")
-		}
-	}()
 	var perftCounter int64 = 0
 	var timer time.Duration = 0
 	start := time.Now()

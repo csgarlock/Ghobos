@@ -21,6 +21,15 @@ const (
 	KnightStepDownRight Step = -15
 	KnightStepRightDown Step = -6
 
+	RightStepID     = 0
+	UpRightStepID   = 1
+	UpStepID        = 2
+	UpLeftStepID    = 3
+	LeftStepID      = 4
+	DownLeftStepID  = 5
+	DownStepID      = 6
+	DownRightStepID = 7
+
 	King   = 0
 	Queen  = 1
 	Rook   = 2
