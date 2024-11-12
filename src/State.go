@@ -347,7 +347,7 @@ func (s *State) ensurePins(perspective uint8) {
 			bishopSquare := PopLSB(&bishopBoard)
 			step := squareToSquareStep[kingSquare][bishopSquare]
 			if step != 0 {
-				stepID := stepMap[step]
+				stepID := getStepId(step)
 				if stepID%2 == 1 {
 					rayCast := squareToSquareFillBoards[kingSquare][bishopSquare]
 					intersection := rayCast & s.sideOccupied[perspective]
@@ -363,7 +363,7 @@ func (s *State) ensurePins(perspective uint8) {
 			rookSquare := PopLSB(&rookBoard)
 			step := squareToSquareStep[kingSquare][rookSquare]
 			if step != 0 {
-				stepID := stepMap[step]
+				stepID := getStepId(step)
 				if stepID%2 == 0 {
 					rayCast := squareToSquareFillBoards[kingSquare][rookSquare]
 					intersection := rayCast & s.sideOccupied[perspective]
@@ -383,7 +383,7 @@ func (s *State) ensurePins(perspective uint8) {
 				intersection := rayCast & s.sideOccupied[perspective]
 				if BitCount(intersection) == 1 && rayCast&s.sideOccupied[1-perspective] == 0 {
 					s.pinInfo.pinnedBoards[perspective] |= intersection
-					s.pinInfo.pinners[perspective][stepMap[step]] = queenSquare
+					s.pinInfo.pinners[perspective][getStepId(step)] = queenSquare
 				}
 			}
 		}
@@ -641,7 +641,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 // Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king expose
 func (s *State) getPinBoard(pinnedSquare Square, kingSquare Square, perspective uint8) Bitboard {
 	if s.pinInfo.pinnedBoards[perspective]&boardFromSquare(pinnedSquare) != 0 {
-		pinnerSquare := s.pinInfo.pinners[perspective][stepMap[squareToSquareStep[kingSquare][pinnedSquare]]]
+		pinnerSquare := s.pinInfo.pinners[perspective][getStepId(squareToSquareStep[kingSquare][pinnedSquare])]
 		return squareToSquareFillBoards[pinnedSquare][kingSquare] | squareToSquareFillBoards[pinnedSquare][pinnerSquare] | boardFromSquare(pinnerSquare)
 	}
 	return UniversalBitboard

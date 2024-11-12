@@ -55,6 +55,7 @@ const (
 )
 
 var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2, UpLeftStep: 3, LeftStep: 4, DownLeftStep: 5, DownStep: 6, DownRightStep: 7, KnightStepRightUp: 8, KnightStepUpRight: 9, KnightStepUpLeft: 10, KnightStepLeftUp: 11, KnightStepLeftDown: 12, KnightStepDownLeft: 13, KnightStepDownRight: 14, KnightStepRightDown: 15}
+var stepIds [19]uint8 = [19]uint8{}
 
 var allSteps [16]Step = [16]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep, KnightStepRightUp, KnightStepUpRight, KnightStepUpLeft, KnightStepLeftUp, KnightStepLeftDown, KnightStepDownLeft, KnightStepDownRight, KnightStepRightDown}
 var cardinalSteps [8]Step = [8]Step{RightStep, UpRightStep, UpStep, UpLeftStep, LeftStep, DownLeftStep, DownStep, DownRightStep}
@@ -174,6 +175,14 @@ func InitializeStepBoard() {
 			}
 		}
 	}
+	stepIds[RightStep+9] = RightStepID
+	stepIds[UpRightStep+9] = UpRightStepID
+	stepIds[UpStep+9] = UpStepID
+	stepIds[UpLeftStep+9] = UpLeftStepID
+	stepIds[LeftStep+9] = LeftStepID
+	stepIds[DownLeftStep+9] = DownLeftStepID
+	stepIds[DownStep+9] = DownStepID
+	stepIds[DownRightStep+9] = DownRightStepID
 }
 
 func FillSlidingAttacks(steps *[4]Step, resultBitboards *[64]Bitboard) {
@@ -232,4 +241,8 @@ func isSlider(id uint8) bool {
 		return true
 	}
 	return false
+}
+
+func getStepId(step Step) uint8 {
+	return stepIds[step+9]
 }
