@@ -36,7 +36,7 @@ type State struct {
 	enPassantSquareHistory *EnPassantSquareHistory
 	lastCapOrPawn          uint16
 	ply                    uint16
-	castleAvailability     *CastleAvailability
+	castleAvailability     CastleAvailability
 	castleHistory          *CastleHistory
 	fiftyMoveHistory       *FiftyMoveHistory
 	repetitionMap          *RepetitionMap
@@ -73,7 +73,7 @@ func (s *State) MakeMove(move Move) {
 	}
 	if move != PassingMove {
 		startSquare := move.OriginSquare()
-		startBoard := Bitboard(1 << Bitboard(startSquare))
+		startBoard := boardFromSquare(startSquare)
 		var startBoardPtr *Bitboard = nil
 		startBoardIndex := 0
 		for i := friendIndex; i < friendIndex+6; i++ {
@@ -85,7 +85,7 @@ func (s *State) MakeMove(move Move) {
 		}
 		s.hashcode ^= squareHashes[startBoardIndex][startSquare]
 		desSquare := move.DestinationSquare()
-		desBoard := Bitboard(1 << Bitboard(desSquare))
+		desBoard := boardFromSquare(desSquare)
 		s.hashcode ^= squareHashes[startBoardIndex][desSquare]
 		var desBoardPtr *Bitboard = nil
 		desBoardIndex := 0
@@ -126,8 +126,8 @@ func (s *State) MakeMove(move Move) {
 				s.hashcode ^= castleHashes[s.turn]
 				s.castleHistory.Push(s.turn, s.ply)
 			}
-			startRookBoard := Bitboard(1 << Bitboard(startingRookSquare))
-			endRookBoard := Bitboard(1 << Bitboard(rookSquare))
+			startRookBoard := boardFromSquare(startingRookSquare)
+			endRookBoard := boardFromSquare(rookSquare)
 			s.board[friendIndex+Rook] ^= startRookBoard
 			s.board[friendIndex+Rook] |= endRookBoard
 			s.sideOccupied[s.turn] ^= startRookBoard
@@ -157,7 +157,7 @@ func (s *State) MakeMove(move Move) {
 				relativeDownStep = UpStep
 			}
 			enPassantCaptureSquare := desSquare.Step(relativeDownStep)
-			enPassantCaptureBoard := Bitboard(1 << Bitboard(enPassantCaptureSquare))
+			enPassantCaptureBoard := boardFromSquare(enPassantCaptureSquare)
 			*enemyPawnBoard ^= enPassantCaptureBoard
 			s.sideOccupied[1-s.turn] ^= enPassantCaptureBoard
 			s.hashcode ^= squareHashes[enemyIndex+Pawn][enPassantCaptureSquare]
@@ -236,9 +236,9 @@ func (s *State) UnMakeMove(move Move) {
 	s.lastCapOrPawn -= 1
 	if move != PassingMove {
 		startSquare := move.OriginSquare()
-		startBoard := Bitboard(1 << Bitboard(startSquare))
+		startBoard := boardFromSquare(startSquare)
 		desSquare := move.DestinationSquare()
-		desBoard := Bitboard(1 << Bitboard(desSquare))
+		desBoard := boardFromSquare(desSquare)
 		var desBoardPtr *Bitboard = nil
 		for i := enemyIndex; i < enemyIndex+6; i++ {
 			board := &s.board[i]
@@ -266,8 +266,8 @@ func (s *State) UnMakeMove(move Move) {
 				startingRookSquare = Square(3 + rankIndex)
 				endingRookSquare = Square(0 + rankIndex)
 			}
-			startingRookBoard := Bitboard(1 << Bitboard(startingRookSquare))
-			endingRookBoard := Bitboard(1 << Bitboard(endingRookSquare))
+			startingRookBoard := boardFromSquare(startingRookSquare)
+			endingRookBoard := boardFromSquare(endingRookSquare)
 			s.board[enemyIndex+Rook] ^= startingRookBoard
 			s.board[enemyIndex+Rook] |= endingRookBoard
 			s.sideOccupied[1-s.turn] ^= startingRookBoard
@@ -278,7 +278,7 @@ func (s *State) UnMakeMove(move Move) {
 				relativeUpStep = DownStep
 			}
 			enPassantSquare := desSquare.Step(relativeUpStep)
-			enPassantBoard := Bitboard(1 << Bitboard(enPassantSquare))
+			enPassantBoard := boardFromSquare(enPassantSquare)
 			s.board[friendIndex+Pawn] ^= desBoard
 			s.board[friendIndex+Pawn] |= enPassantBoard
 			s.sideOccupied[s.turn] ^= desBoard
@@ -910,7 +910,7 @@ func FenState(fenString string) *State {
 	repetitionMap := make(RepetitionMap, 50)
 	hashHistory := NewHashHistory(5)
 	pinInfo := PinInfo{pinnedBoards: [2]Bitboard{}, pinners: [2][8]Square{}, pinsSet: [2]bool{false, false}}
-	s := &State{board: board, sideOccupied: sideOccupied, occupied: occupied, notOccupied: ^occupied, pinInfo: pinInfo, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: &castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, hashHistory: hashHistory, searchParameters: searchParameters}
+	s := &State{board: board, sideOccupied: sideOccupied, occupied: occupied, notOccupied: ^occupied, pinInfo: pinInfo, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, hashHistory: hashHistory, searchParameters: searchParameters}
 	s.hashcode = s.hash()
 	s.hashHistory.Push(s.hashcode)
 	s.ensurePins(White)
@@ -998,7 +998,7 @@ func (s *State) String() string {
 	if s.canEnpassant {
 		result += "Can En Passant: " + s.enPassantSquare.String() + "\n"
 	}
-	result += fmt.Sprintf("Castle Availability: %v", *s.castleAvailability)
+	result += fmt.Sprintf("Castle Availability: %v", s.castleAvailability)
 	return result + "\n"
 }
 
@@ -1007,13 +1007,16 @@ func (s *State) getPV() string {
 	moveStack := make([]Move, 0, 30)
 	var result TableData
 	var found bool
+	seenBoards := map[uint64]uint64{}
 	for {
 		result, found = transpositionTable.SearchState(s)
-		if found {
+		_, dupFound := seenBoards[s.hashcode]
+		if found && !dupFound {
 			bestMove := result.bestMove
 			if bestMove != NilMove {
 				pvString += bestMove.ShortString() + " "
 				moveStack = append(moveStack, bestMove)
+				seenBoards[s.hashcode] = s.hashcode
 				s.MakeMove(bestMove)
 			} else {
 				break

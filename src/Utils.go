@@ -3,7 +3,14 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
+
+type RunningTimer struct {
+	total     time.Duration
+	startTime time.Time
+	laps      uint64
+}
 
 func clampInt32(x int32, min int32, max int32) int32 {
 	if x > max {
@@ -86,4 +93,23 @@ func GetUserFloat(prompt string) float64 {
 		}
 		return num
 	}
+}
+
+func NewRunningTimer() RunningTimer {
+	return RunningTimer{0, time.Now(), 0}
+}
+
+func (t *RunningTimer) Start() {
+	t.startTime = time.Now()
+}
+
+func (t *RunningTimer) Stop() {
+	t.total += time.Since(t.startTime)
+	t.laps++
+}
+
+func (t *RunningTimer) Reset() {
+	t.total = 0
+	t.startTime = time.Now()
+	t.laps = 0
 }

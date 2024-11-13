@@ -51,9 +51,6 @@ func (pH *CaptureHistory) MostRecentCapturePly() uint16 {
 
 func (pH *CaptureHistory) Pop() Capture {
 	pH.currentIndex--
-	if pH.currentIndex < 0 {
-		panic("Can't pop empty PieceHistory")
-	}
 	capture := pH.slice[pH.currentIndex]
 	return capture
 }
@@ -77,9 +74,6 @@ func (eH *EnPassantSquareHistory) MostRecentCapturePly() uint16 {
 
 func (eH *EnPassantSquareHistory) Pop() EnPassantEntry {
 	eH.currentIndex--
-	if eH.currentIndex < 0 {
-		panic("Can't pop empty PieceHistory")
-	}
 	capture := eH.slice[eH.currentIndex]
 	return capture
 }
@@ -107,9 +101,6 @@ func (cH *CastleHistory) MostRecentCapturePly() uint16 {
 
 func (cH *CastleHistory) Pop() CastleHistoryEntry {
 	cH.currentIndex--
-	if cH.currentIndex < 0 {
-		panic("Can't pop empty PieceHistory")
-	}
 	capture := cH.slice[cH.currentIndex]
 	return capture
 }
@@ -133,9 +124,6 @@ func (fH *FiftyMoveHistory) lastReset() uint16 {
 
 func (fH *FiftyMoveHistory) Pop() FiftyMoveEntry {
 	fH.currentIndex--
-	if fH.currentIndex < 0 {
-		panic("Can't pop empty PieceHistory")
-	}
 	return fH.slice[fH.currentIndex]
 }
 
@@ -155,9 +143,6 @@ func NewHashHistory(startingLength int32) *HashHistory {
 
 func (hH *HashHistory) Pop() uint64 {
 	hH.currentIndex--
-	if hH.currentIndex < 0 {
-		panic("Can't pop empty HashHistory")
-	}
 	return hH.slice[hH.currentIndex]
 }
 

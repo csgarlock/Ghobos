@@ -10,19 +10,9 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
-	SetupTable(16)
-	// game := FenState("r1bqkbnr/pppppppp/8/2n5/3P4/8/PPPKPPPP/RNBQ1BNR w kq - 3 3")
-	// fmt.Println(game)
-	// fmt.Println(game.pinInfo.pinnedBoards[0])
-	// fmt.Println(game.pinInfo.pinnedBoards[1])
-	// for i := range 2 {
-	// 	fmt.Println()
-	// 	for j := range 8 {
-	// 		fmt.Println(game.pinInfo.pinners[i][j])
-	// 	}
-	// }
-	// PerftChecker(5, StartingFen())
+	SetupTable(2048)
 	PerftTester()
+	// UIGame()
 }
 
 func UIGame() {
