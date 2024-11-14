@@ -144,7 +144,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		}
 		if hasBigPiece {
 			s.MakeMove(PassingMove)
-			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -alpha, false, false)
+			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -beta+1, false, false)
 			score *= -1
 			s.UnMakeMove(PassingMove)
 			if score >= beta {

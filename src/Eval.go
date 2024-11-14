@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 )
 
@@ -81,11 +80,6 @@ func (s *State) EvalState(perspective uint8) int32 {
 
 	// King Safety and Piece Mobility. Allows pieces to "move" to square occupied by friendly pieces because defending a friendly piece is still beneficial
 	for side := uint8(0); side < 2; side++ {
-		if side == White {
-			fmt.Println("White")
-		} else {
-			fmt.Println("Black")
-		}
 		s.ensurePins(side)
 		mobilityCount := int32(0)
 		kingAttackerPoints := int32(0)
@@ -99,7 +93,6 @@ func (s *State) EvalState(perspective uint8) int32 {
 			safeSquares := s.getPinBoard(bishopSquare, friendKingSquare, side)
 			bishopMoves := getBishopMoves(bishopSquare, s.occupied) & safeSquares
 			mobilityCount += int32(BitCount(bishopMoves))
-			fmt.Printf("%v square: %d moves\n", bishopSquare, BitCount(bishopMoves))
 			kingAttackerPoints += int32(BitCount(bishopMoves&enemyKingNeighbors)) * BishopKingAttackValue
 		}
 		knightBoard := s.board[friendIndex+Knight]
@@ -108,7 +101,6 @@ func (s *State) EvalState(perspective uint8) int32 {
 			safeSquares := s.getPinBoard(knightSquare, friendKingSquare, side)
 			knightMoves := moveBoards[Knight][knightSquare] & safeSquares
 			mobilityCount += int32(BitCount(knightMoves))
-			fmt.Printf("%v square: %d moves\n", knightSquare, BitCount(knightMoves))
 			kingAttackerPoints += int32(BitCount(knightMoves&enemyKingNeighbors)) * KnightKingAttackValue
 		}
 		rookBoard := s.board[friendIndex+Rook]
@@ -117,7 +109,6 @@ func (s *State) EvalState(perspective uint8) int32 {
 			safeSquares := s.getPinBoard(rookSquare, friendKingSquare, side)
 			rookMoves := getRookMoves(rookSquare, s.occupied) & safeSquares
 			mobilityCount += int32(BitCount(rookMoves))
-			fmt.Printf("%v square: %d moves\n", rookSquare, BitCount(rookMoves))
 			kingAttackerPoints += int32(BitCount(rookMoves&enemyKingNeighbors)) * RookKingAttackValue
 		}
 		queenBoard := s.board[friendIndex+Queen]
@@ -126,20 +117,17 @@ func (s *State) EvalState(perspective uint8) int32 {
 			safeSquares := s.getPinBoard(queenSquare, friendKingSquare, side)
 			queenMoves := getQueenMoves(queenSquare, s.occupied) & safeSquares
 			mobilityCount += int32(BitCount(queenMoves))
-			fmt.Printf("%v square: %d moves\n", queenSquare, BitCount(queenMoves))
 			kingAttackerPoints += int32(BitCount(queenMoves&enemyKingNeighbors)) * QueenKingAttackValue
 		}
 		pawnBoard := s.board[friendIndex+Pawn]
 		moveStep := -Step(16*side - 8) // Turns 0 into 8 for upstep and 1 int -8 for down step
-		fmt.Println(moveStep)
-		homeRank := int8(side*5 + 1) // Turns 0 into 1, turns 1 into 6
+		homeRank := int8(side*5 + 1)   // Turns 0 into 1, turns 1 into 6
 		for pawnBoard != 0 {
 			pawnSquare := PopLSB(&pawnBoard)
 			safeSquare := s.getPinBoard(pawnSquare, friendKingSquare, side)
 			pawnMoves := GetPawnMoves(pawnSquare, s.occupied, moveStep, homeRank) & safeSquare
 			pawnAttacks := pawnAttackBoards[side][pawnSquare] & s.sideOccupied[1-side]
 			mobilityCount += int32(BitCount(pawnMoves | pawnAttacks))
-			fmt.Printf("%v square: %d moves\n", pawnSquare, BitCount(pawnMoves|pawnAttacks))
 			kingAttackerPoints += int32(BitCount(pawnAttacks&enemyKingNeighbors)) * PawnKingAttackValue
 		}
 		kingBoard := s.board[friendIndex+King]
@@ -147,19 +135,14 @@ func (s *State) EvalState(perspective uint8) int32 {
 			kingSquare := PopLSB(&kingBoard)
 			kingMoves := moveBoards[King][kingSquare]
 			mobilityCount += int32(BitCount(kingMoves))
-			fmt.Printf("%v square: %d moves\n", kingSquare, BitCount(kingMoves))
 			kingAttackerPoints += int32(BitCount(kingMoves&enemyKingNeighbors)) * KingKingAttackValue
 		}
 		if side == White {
 			eval += mobilityCount * MobilityValue
 			eval += getKingSafetyValue(kingAttackerPoints)
-			fmt.Println("Mobility", mobilityCount)
-			fmt.Println("King Attacker Points", kingAttackerPoints)
 		} else {
 			eval -= mobilityCount * MobilityValue
 			eval -= getKingSafetyValue(kingAttackerPoints)
-			fmt.Println("Mobility", mobilityCount)
-			fmt.Println("King Attacker Points", kingAttackerPoints)
 		}
 	}
 
