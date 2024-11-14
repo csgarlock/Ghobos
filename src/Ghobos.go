@@ -10,9 +10,8 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
-	SetupTable(2048)
-	PerftTester()
-	// UIGame()
+	SetupTable(4096)
+	UIGame()
 }
 
 func UIGame() {

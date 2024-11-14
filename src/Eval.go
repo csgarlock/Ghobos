@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"math"
+)
+
 const (
 	CentiPawn   int32 = 65536
 	PawnValue   int32 = CentiPawn * 100
@@ -15,6 +20,15 @@ const (
 
 	OpenFileRookValue int32 = CentiPawn * 10
 
+	MobilityValue int32 = CentiPawn * 1
+
+	PawnKingAttackValue   int32 = 1
+	KnightKingAttackValue int32 = 2
+	BishopKingAttackValue int32 = 2
+	RookKingAttackValue   int32 = 3
+	QueenKingAttackValue  int32 = 5
+	KingKingAttackValue   int32 = 1
+
 	PawnPhaseValue   int8 = 0
 	BishopPhaseValue int8 = 1
 	KnightPhaseValue int8 = 1
@@ -25,12 +39,15 @@ const (
 )
 
 var valueTable [6]int32 = [6]int32{KingValue, QueenValue, RookValue, BishopValue, KnightValue, PawnValue}
+
 var midgamePieceSquareTable [12][64]int32
 var endgamePieceSquareTable [12][64]int32
+
+var kingSafetyTable [60]uint16
 var gamePhaseValues [6]int8 = [6]int8{KingPhaseValue, QueenPhaseValue, RookPhaseValue, BishopPhaseValue, KingPhaseValue, PawnPhaseValue}
 
 func InitializeEvalVariables() {
-	setupPieceSquareTable()
+	setupEvalValues()
 }
 
 func (s *State) EvalState(perspective uint8) int32 {
@@ -61,6 +78,90 @@ func (s *State) EvalState(perspective uint8) int32 {
 	mgPhaseValue := min(phaseValue, TotalPhaseValue)
 	egPhaseValue := TotalPhaseValue - mgPhaseValue
 	eval += (mgPieceSquareTableEval*int32(mgPhaseValue) + egPieceSquareTableEval*int32(egPhaseValue)) / int32(TotalPhaseValue)
+
+	// King Safety and Piece Mobility. Allows pieces to "move" to square occupied by friendly pieces because defending a friendly piece is still beneficial
+	for side := uint8(0); side < 2; side++ {
+		if side == White {
+			fmt.Println("White")
+		} else {
+			fmt.Println("Black")
+		}
+		s.ensurePins(side)
+		mobilityCount := int32(0)
+		kingAttackerPoints := int32(0)
+		friendIndex := side * 6
+		enemyIndex := (1 - side) * 6
+		friendKingSquare := GetLSB(s.board[friendIndex+King])
+		enemyKingNeighbors := (moveBoards[King][GetLSB(s.board[enemyIndex+King])] & ^s.sideOccupied[1-side]) | s.board[enemyIndex+King]
+		bishopBoard := s.board[friendIndex+Bishop]
+		for bishopBoard != 0 {
+			bishopSquare := PopLSB(&bishopBoard)
+			safeSquares := s.getPinBoard(bishopSquare, friendKingSquare, side)
+			bishopMoves := getBishopMoves(bishopSquare, s.occupied) & safeSquares
+			mobilityCount += int32(BitCount(bishopMoves))
+			fmt.Printf("%v square: %d moves\n", bishopSquare, BitCount(bishopMoves))
+			kingAttackerPoints += int32(BitCount(bishopMoves&enemyKingNeighbors)) * BishopKingAttackValue
+		}
+		knightBoard := s.board[friendIndex+Knight]
+		for knightBoard != 0 {
+			knightSquare := PopLSB(&knightBoard)
+			safeSquares := s.getPinBoard(knightSquare, friendKingSquare, side)
+			knightMoves := moveBoards[Knight][knightSquare] & safeSquares
+			mobilityCount += int32(BitCount(knightMoves))
+			fmt.Printf("%v square: %d moves\n", knightSquare, BitCount(knightMoves))
+			kingAttackerPoints += int32(BitCount(knightMoves&enemyKingNeighbors)) * KnightKingAttackValue
+		}
+		rookBoard := s.board[friendIndex+Rook]
+		for rookBoard != 0 {
+			rookSquare := PopLSB(&rookBoard)
+			safeSquares := s.getPinBoard(rookSquare, friendKingSquare, side)
+			rookMoves := getRookMoves(rookSquare, s.occupied) & safeSquares
+			mobilityCount += int32(BitCount(rookMoves))
+			fmt.Printf("%v square: %d moves\n", rookSquare, BitCount(rookMoves))
+			kingAttackerPoints += int32(BitCount(rookMoves&enemyKingNeighbors)) * RookKingAttackValue
+		}
+		queenBoard := s.board[friendIndex+Queen]
+		for queenBoard != 0 {
+			queenSquare := PopLSB(&queenBoard)
+			safeSquares := s.getPinBoard(queenSquare, friendKingSquare, side)
+			queenMoves := getQueenMoves(queenSquare, s.occupied) & safeSquares
+			mobilityCount += int32(BitCount(queenMoves))
+			fmt.Printf("%v square: %d moves\n", queenSquare, BitCount(queenMoves))
+			kingAttackerPoints += int32(BitCount(queenMoves&enemyKingNeighbors)) * QueenKingAttackValue
+		}
+		pawnBoard := s.board[friendIndex+Pawn]
+		moveStep := -Step(16*side - 8) // Turns 0 into 8 for upstep and 1 int -8 for down step
+		fmt.Println(moveStep)
+		homeRank := int8(side*5 + 1) // Turns 0 into 1, turns 1 into 6
+		for pawnBoard != 0 {
+			pawnSquare := PopLSB(&pawnBoard)
+			safeSquare := s.getPinBoard(pawnSquare, friendKingSquare, side)
+			pawnMoves := GetPawnMoves(pawnSquare, s.occupied, moveStep, homeRank) & safeSquare
+			pawnAttacks := pawnAttackBoards[side][pawnSquare] & s.sideOccupied[1-side]
+			mobilityCount += int32(BitCount(pawnMoves | pawnAttacks))
+			fmt.Printf("%v square: %d moves\n", pawnSquare, BitCount(pawnMoves|pawnAttacks))
+			kingAttackerPoints += int32(BitCount(pawnAttacks&enemyKingNeighbors)) * PawnKingAttackValue
+		}
+		kingBoard := s.board[friendIndex+King]
+		for knightBoard != 0 {
+			kingSquare := PopLSB(&kingBoard)
+			kingMoves := moveBoards[King][kingSquare]
+			mobilityCount += int32(BitCount(kingMoves))
+			fmt.Printf("%v square: %d moves\n", kingSquare, BitCount(kingMoves))
+			kingAttackerPoints += int32(BitCount(kingMoves&enemyKingNeighbors)) * KingKingAttackValue
+		}
+		if side == White {
+			eval += mobilityCount * MobilityValue
+			eval += getKingSafetyValue(kingAttackerPoints)
+			fmt.Println("Mobility", mobilityCount)
+			fmt.Println("King Attacker Points", kingAttackerPoints)
+		} else {
+			eval -= mobilityCount * MobilityValue
+			eval -= getKingSafetyValue(kingAttackerPoints)
+			fmt.Println("Mobility", mobilityCount)
+			fmt.Println("King Attacker Points", kingAttackerPoints)
+		}
+	}
 
 	// Pawn Eval
 	whitePawns := s.board[WhitePawn]
@@ -200,7 +301,10 @@ func EvalLowToHigh(eval int16) int32 {
 	return int32(eval) * CentiPawn
 }
 
-func setupPieceSquareTable() {
+func setupEvalValues() {
+	for i := 0; i < len(kingSafetyTable); i++ {
+		kingSafetyTable[i] = kingSafetyFunction(float64(i))
+	}
 	midgamePieceSquareTable[WhiteKing] = [64]int32{
 		20, 30, 10, 0, 0, 10, 30, 20,
 		20, 20, 0, 0, 0, 0, 20, 20,
@@ -324,4 +428,18 @@ func setupPieceSquareTable() {
 			endgamePieceSquareTable[b+6][s^56] = endgamePieceSquareTable[b][s]
 		}
 	}
+}
+
+func kingSafetyFunction(x float64) uint16 {
+	const a = float64(-4e-5)
+	const b = float64(2.7e-3)
+	const c = float64(0.088)
+	const d = float64(0.70)
+	const e = float64(-0.8)
+	return uint16(math.Floor(max(0, a*math.Pow(x, 4)+b*math.Pow(x, 3)+c*math.Pow(x, 2)+d*x+e)))
+
+}
+
+func getKingSafetyValue(x int32) int32 {
+	return CentiPawn * int32(kingSafetyTable[min(x, 59)])
 }
