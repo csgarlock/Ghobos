@@ -22,6 +22,8 @@ const (
 	asperationMateSearchCutoff int32 = CentiPawn * 2000
 
 	NullMoveReduction = 2
+
+	FutilityCutoff int32 = CentiPawn * 300
 )
 
 var nodesSearched uint64 = 0
@@ -94,9 +96,6 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 }
 
 func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skipNull bool) (int32, Move) {
-	if s.hashcode != s.hash() {
-		fmt.Println(s)
-	}
 	s.searchParameters.trueDepth += 1
 	nodesSearched++
 	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hashcode) >= 3 {
@@ -120,8 +119,22 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		s.searchParameters.trueDepth -= 1
 		return s.QuiescenceSearch(alpha, beta)
 	}
-	captures, quiets := s.genAllMoves(true)
-	if len(*captures) == 0 && len(*quiets) == 0 {
+	var captures *[]CaptureMove
+	var quiets *[]QuietMove
+	futileNode := false
+	staticEval := int32(0) // Only set if the below conditions are met
+	if depth == 1 && !s.check && alpha > -asperationMateSearchCutoff && beta < asperationMateSearchCutoff {
+		staticEval = s.EvalState(s.turn)
+		if staticEval < alpha-FutilityCutoff {
+			captures, quiets = s.genAllMoves(false)
+			futileNode = true
+		} else {
+			captures, quiets = s.genAllMoves(true)
+		}
+	} else {
+		captures, quiets = s.genAllMoves(true)
+	}
+	if len(*captures) == 0 && len(*quiets) == 0 && !futileNode {
 		if s.check {
 			eval := LowestEval + (int32(s.searchParameters.trueDepth) * CentiPawn)
 			transpositionTable.AddState(s, eval, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
@@ -153,7 +166,16 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			}
 		}
 	}
-	moves := s.orderMoves(captures, quiets, projectedBestMove)
+	var moves *[]Move
+	if !futileNode {
+		moves = s.orderMoves(captures, quiets, projectedBestMove)
+	} else {
+		moves = s.orderCaptureMoves(captures)
+		if len(*moves) == 0 {
+			s.searchParameters.trueDepth -= 1
+			return alpha, NilMove
+		}
+	}
 	allNode := true
 	bestMove := (*moves)[0]
 	for i, move := range *moves {
@@ -284,6 +306,18 @@ func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove 
 		}
 	}
 	return &sortedMoves
+}
+
+func (s *State) orderCaptureMoves(captures *[]CaptureMove) *[]Move {
+	sortedMoves := make([]Move, len(*captures))
+	sort.Slice(*captures, func(i, j int) bool {
+		return (*captures)[i].captureValue > (*captures)[j].captureValue
+	})
+	for i, capture := range *captures {
+		sortedMoves[i] = capture.move
+	}
+	return &sortedMoves
+
 }
 
 func (s *State) addKiller(move Move) {
