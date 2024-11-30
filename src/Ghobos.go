@@ -45,7 +45,6 @@ func UIGame() {
 		if playerTurn {
 			for {
 				playerMove := getUserMove()
-				fmt.Println(playerMove)
 				validMoves := gameState.quickGenMoves()
 				found := false
 				var foundMove Move
@@ -75,7 +74,6 @@ func UIGame() {
 							}
 						}
 					}
-					fmt.Println(foundMove)
 					gameState.MakeMove(foundMove)
 					break
 				} else {
@@ -84,7 +82,7 @@ func UIGame() {
 			}
 		} else {
 			searchTime := GetUserFloat("How long would you like to search (in seconds)?: ")
-			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime * float64(time.Second)))
+			bestMove := gameState.IterativeDeepiningSearch(time.Duration(searchTime*float64(time.Second)), true)
 			gameState.MakeMove(bestMove)
 		}
 		moves := gameState.quickGenMoves()

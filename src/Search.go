@@ -34,7 +34,8 @@ var lastMoveScore int32 = startingEval
 
 var historyTable HistoryTable = HistoryTable{}
 
-func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
+func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool) Move {
+	totalNodes := uint64(0)
 	startTime := time.Now()
 	result, found := transpositionTable.SearchState(s)
 	stateEvalGuess := lastMoveScore
@@ -50,16 +51,23 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 	stateScore := stateEvalGuess
 	lastSearchNodes := uint64(1)
 	for time.Since(startTime) < maxTime {
-		fmt.Println("Search time left: ", maxTime-time.Since(startTime))
-		fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
+		if debugPrint {
+			fmt.Println("Search time left: ", maxTime-time.Since(startTime))
+			fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
+		}
 		startingDepth = currentDepth
 		nodesSearched = 0
 		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, true, true)
-		effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
-		fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %.2f, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), NormalizeEval(stateScore), effectiveBranchFactor)
+		totalNodes += nodesSearched
+		if debugPrint {
+			effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
+			fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %.2f, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), NormalizeEval(stateScore), effectiveBranchFactor)
+		}
 		// Check if returned score was at bounds of aspiration window
 		if stateScore == aspirationWindowLow {
-			fmt.Println("Searched Failed Low")
+			if debugPrint {
+				fmt.Println("Searched Failed Low")
+			}
 			aspirationWindowHigh -= aspirationDelta / 3
 			if aspirationWindowLow <= -asperationMateSearchCutoff {
 				aspirationWindowLow = min32
@@ -68,7 +76,9 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 				aspirationDelta *= 2
 			}
 		} else if stateScore == aspirationWindowHigh {
-			fmt.Println("Searched Failed High")
+			if debugPrint {
+				fmt.Println("Searched Failed High")
+			}
 			aspirationWindowLow += aspirationDelta / 3
 			if aspirationWindowHigh >= asperationMateSearchCutoff {
 				aspirationWindowHigh = max32
@@ -77,7 +87,9 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 				aspirationDelta *= 2
 			}
 		} else {
-			fmt.Println("Searched Succeeded")
+			if debugPrint {
+				fmt.Println("Searched Succeeded")
+			}
 			bestFoundMove = contendingMove
 			lastMoveScore = stateScore
 			if currentDepth >= 5 {
@@ -91,7 +103,11 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration) Move {
 			lastSearchNodes = nodesSearched
 		}
 	}
-	fmt.Println("Expected Moves: ", s.getPV())
+	fmt.Println("Best Move:", bestFoundMove.ShortString())
+	fmt.Println("Expected Moves:", s.getPV())
+	fmt.Println("Total Nodes Searched:", totalNodes)
+	fmt.Println("Total Search Time:", time.Since(startTime))
+	fmt.Printf("Million Nodes per Second: %.2f\n", float64(totalNodes)/time.Since(startTime).Seconds()/1_000_000.0)
 	return bestFoundMove
 }
 
