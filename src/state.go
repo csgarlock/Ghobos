@@ -10,7 +10,7 @@ type KillerTable [][2]Move
 
 // TODO migrate to worker when added instead of being linked to a state
 type SearchParameters struct {
-	killerTable *KillerTable
+	killerTable KillerTable
 	trueDepth   int16 // The true depth from the root node
 }
 
@@ -31,14 +31,14 @@ type State struct {
 	turn                   uint8 // 0 for White, 1 for Black
 	enPassantSquare        Square
 	check                  bool
-	captureHistory         *CaptureHistory
+	captureHistory         CaptureHistory
 	canEnpassant           bool
-	enPassantSquareHistory *EnPassantSquareHistory
+	enPassantSquareHistory EnPassantSquareHistory
 	lastCapOrPawn          uint16
 	ply                    uint16
 	castleAvailability     CastleAvailability
-	castleHistory          *CastleHistory
-	fiftyMoveHistory       *FiftyMoveHistory
+	castleHistory          CastleHistory
+	fiftyMoveHistory       FiftyMoveHistory
 	repetitionMap          *RepetitionMap
 	hashcode               uint64
 	hashHistory            *HashHistory
@@ -906,12 +906,32 @@ func FenState(fenString string) *State {
 		killerTable[i][0] = NilMove
 		killerTable[i][1] = NilMove
 	}
-	searchParameters := SearchParameters{killerTable: &killerTable, trueDepth: -1}
+	searchParameters := SearchParameters{killerTable: killerTable, trueDepth: -1}
 	fiftyMoveRule := newFiftyMoveRuleHistory(104)
 	repetitionMap := make(RepetitionMap, 50)
 	hashHistory := NewHashHistory(5)
 	pinInfo := PinInfo{pinnedBoards: [2]Bitboard{}, pinners: [2][8]Square{}, pinsSet: [2]bool{false, false}}
-	s := &State{board: board, sideOccupied: sideOccupied, occupied: occupied, notOccupied: ^occupied, pinInfo: pinInfo, turn: turn, enPassantSquare: enPassantSquare, check: false, captureHistory: NewCaptureHistory(32), canEnpassant: canEnpassant, enPassantSquareHistory: NewEnpassantHistory(16), lastCapOrPawn: uint16(halfMoveClock), ply: ply, castleAvailability: castleAvailability, castleHistory: NewCastleHistory(4), fiftyMoveHistory: fiftyMoveRule, repetitionMap: &repetitionMap, hashHistory: hashHistory, searchParameters: searchParameters}
+	s := &State{
+		board:                  board,
+		sideOccupied:           sideOccupied,
+		occupied:               occupied,
+		notOccupied:            ^occupied,
+		pinInfo:                pinInfo,
+		turn:                   turn,
+		enPassantSquare:        enPassantSquare,
+		check:                  false,
+		captureHistory:         NewCaptureHistory(32),
+		canEnpassant:           canEnpassant,
+		enPassantSquareHistory: NewEnpassantHistory(16),
+		lastCapOrPawn:          uint16(halfMoveClock),
+		ply:                    ply,
+		castleAvailability:     castleAvailability,
+		castleHistory:          NewCastleHistory(4),
+		fiftyMoveHistory:       fiftyMoveRule,
+		repetitionMap:          &repetitionMap,
+		hashHistory:            hashHistory,
+		searchParameters:       searchParameters,
+	}
 	s.hashcode = s.hash()
 	s.hashHistory.Push(s.hashcode)
 	s.ensurePins(White)

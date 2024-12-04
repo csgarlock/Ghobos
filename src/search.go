@@ -182,19 +182,19 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			}
 		}
 	}
-	var moves *[]Move
+	var moves []Move
 	if !futileNode {
-		moves = s.orderMoves(captures, quiets, projectedBestMove)
+		moves = s.orderMoves(*captures, *quiets, projectedBestMove)
 	} else {
 		moves = s.orderCaptureMoves(captures)
-		if len(*moves) == 0 {
+		if len(moves) == 0 {
 			s.searchParameters.trueDepth -= 1
 			return alpha, NilMove
 		}
 	}
 	allNode := true
-	bestMove := (*moves)[0]
-	for i, move := range *moves {
+	bestMove := moves[0]
+	for i, move := range moves {
 		// Reductions
 		reduction := int32(0)
 		// Late Move Reduction
@@ -272,23 +272,23 @@ func (s *State) QuiescenceSearch(alpha int32, beta int32) (int32, Move) {
 	return alpha, bestMove
 }
 
-func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove Move) *[]Move {
-	sortedMoves := make([]Move, len(*captures)+len(*quiets))
+func (s *State) orderMoves(captures []CaptureMove, quiets []QuietMove, ttMove Move) []Move {
+	sortedMoves := make([]Move, len(captures)+len(quiets))
 	totalIndex := 0
-	sort.Slice(*captures, func(i, j int) bool {
-		return (*captures)[i].captureValue > (*captures)[j].captureValue
+	sort.Slice(captures, func(i, j int) bool {
+		return (captures)[i].captureValue > (captures)[j].captureValue
 	})
-	sort.Slice(*quiets, func(i, j int) bool {
-		return (*quiets)[i].historyValue > (*quiets)[j].historyValue
+	sort.Slice(quiets, func(i, j int) bool {
+		return (quiets)[i].historyValue > (quiets)[j].historyValue
 	})
 	if ttMove != NilMove && ttMove != PassingMove {
 		sortedMoves[0] = ttMove
 		totalIndex++
 	}
-	badCutoff := len(*captures)
-	for i := 0; i < len(*captures); i++ {
-		if (*captures)[i].captureValue >= 0 && (*captures)[i].move != ttMove {
-			sortedMoves[totalIndex] = (*captures)[i].move
+	badCutoff := len(captures)
+	for i := 0; i < len(captures); i++ {
+		if (captures)[i].captureValue >= 0 && (captures)[i].move != ttMove {
+			sortedMoves[totalIndex] = (captures)[i].move
 			totalIndex++
 		} else {
 			badCutoff = i
@@ -296,35 +296,35 @@ func (s *State) orderMoves(captures *[]CaptureMove, quiets *[]QuietMove, ttMove 
 		}
 	}
 	skipIndex := [2]int{-1, -1}
-	if int16(len(*s.searchParameters.killerTable)) > s.searchParameters.trueDepth {
-		for i := 0; i < len(*quiets); i++ {
-			if (*quiets)[i].move == (*s.searchParameters.killerTable)[s.searchParameters.trueDepth][0] && (*quiets)[i].move != ttMove {
-				sortedMoves[totalIndex] = (*s.searchParameters.killerTable)[s.searchParameters.trueDepth][0]
+	if int16(len(s.searchParameters.killerTable)) > s.searchParameters.trueDepth {
+		for i := 0; i < len(quiets); i++ {
+			if (quiets)[i].move == s.searchParameters.killerTable[s.searchParameters.trueDepth][0] && (quiets)[i].move != ttMove {
+				sortedMoves[totalIndex] = s.searchParameters.killerTable[s.searchParameters.trueDepth][0]
 				skipIndex[0] = i
 				totalIndex++
-			} else if (*quiets)[i].move == (*s.searchParameters.killerTable)[s.searchParameters.trueDepth][1] && (*quiets)[i].move != ttMove {
-				sortedMoves[totalIndex] = (*s.searchParameters.killerTable)[s.searchParameters.trueDepth][1]
+			} else if (quiets)[i].move == s.searchParameters.killerTable[s.searchParameters.trueDepth][1] && (quiets)[i].move != ttMove {
+				sortedMoves[totalIndex] = s.searchParameters.killerTable[s.searchParameters.trueDepth][1]
 				skipIndex[1] = i
 				totalIndex++
 			}
 		}
 	}
-	for i := 0; i < len(*quiets); i++ {
-		if i != skipIndex[0] && i != skipIndex[1] && (*quiets)[i].move != ttMove {
-			sortedMoves[totalIndex] = (*quiets)[i].move
+	for i := 0; i < len(quiets); i++ {
+		if i != skipIndex[0] && i != skipIndex[1] && (quiets)[i].move != ttMove {
+			sortedMoves[totalIndex] = (quiets)[i].move
 			totalIndex++
 		}
 	}
-	for i := badCutoff; i < len(*captures); i++ {
-		if (*captures)[i].move != ttMove {
-			sortedMoves[totalIndex] = (*captures)[i].move
+	for i := badCutoff; i < len(captures); i++ {
+		if (captures)[i].move != ttMove {
+			sortedMoves[totalIndex] = (captures)[i].move
 			totalIndex++
 		}
 	}
-	return &sortedMoves
+	return sortedMoves
 }
 
-func (s *State) orderCaptureMoves(captures *[]CaptureMove) *[]Move {
+func (s *State) orderCaptureMoves(captures *[]CaptureMove) []Move {
 	sortedMoves := make([]Move, len(*captures))
 	sort.Slice(*captures, func(i, j int) bool {
 		return (*captures)[i].captureValue > (*captures)[j].captureValue
@@ -332,21 +332,21 @@ func (s *State) orderCaptureMoves(captures *[]CaptureMove) *[]Move {
 	for i, capture := range *captures {
 		sortedMoves[i] = capture.move
 	}
-	return &sortedMoves
+	return sortedMoves
 
 }
 
 func (s *State) addKiller(move Move) {
-	if s.searchParameters.trueDepth > int16(len(*s.searchParameters.killerTable)-1) {
-		killerTable := make(KillerTable, len(*s.searchParameters.killerTable)*2)
-		for i := range len(*s.searchParameters.killerTable) {
-			killerTable[i][0] = (*s.searchParameters.killerTable)[i][0]
-			killerTable[i][1] = (*s.searchParameters.killerTable)[i][1]
-			killerTable[len(*s.searchParameters.killerTable)+i][0] = NilMove
-			killerTable[len(*s.searchParameters.killerTable)+i][1] = NilMove
+	if s.searchParameters.trueDepth > int16(len(s.searchParameters.killerTable)-1) {
+		killerTable := make(KillerTable, len(s.searchParameters.killerTable)*2)
+		for i := range len(s.searchParameters.killerTable) {
+			killerTable[i][0] = s.searchParameters.killerTable[i][0]
+			killerTable[i][1] = s.searchParameters.killerTable[i][1]
+			killerTable[len(s.searchParameters.killerTable)+i][0] = NilMove
+			killerTable[len(s.searchParameters.killerTable)+i][1] = NilMove
 		}
-		s.searchParameters.killerTable = &killerTable
+		s.searchParameters.killerTable = killerTable
 	}
-	(*s.searchParameters.killerTable)[s.searchParameters.trueDepth][1] = (*s.searchParameters.killerTable)[s.searchParameters.trueDepth][0]
-	(*s.searchParameters.killerTable)[s.searchParameters.trueDepth][0] = move
+	s.searchParameters.killerTable[s.searchParameters.trueDepth][1] = s.searchParameters.killerTable[s.searchParameters.trueDepth][0]
+	s.searchParameters.killerTable[s.searchParameters.trueDepth][0] = move
 }

@@ -37,9 +37,9 @@ type HashHistory struct {
 	currentIndex int32
 }
 
-func NewCaptureHistory(startingLength int32) *CaptureHistory {
+func NewCaptureHistory(startingLength int32) CaptureHistory {
 	slice := make([]Capture, startingLength)
-	return &CaptureHistory{slice: slice, currentIndex: 0}
+	return CaptureHistory{slice: slice, currentIndex: 0}
 }
 
 func (pH *CaptureHistory) MostRecentCapturePly() uint16 {
@@ -60,9 +60,9 @@ func (pH *CaptureHistory) Push(piece uint8, ply uint16) {
 	pH.currentIndex++
 }
 
-func NewEnpassantHistory(startingLength int32) *EnPassantSquareHistory {
+func NewEnpassantHistory(startingLength int32) EnPassantSquareHistory {
 	slice := make([]EnPassantEntry, startingLength)
-	return &EnPassantSquareHistory{slice: slice, currentIndex: 0}
+	return EnPassantSquareHistory{slice: slice, currentIndex: 0}
 }
 
 func (eH *EnPassantSquareHistory) MostRecentCapturePly() uint16 {
@@ -87,9 +87,9 @@ func (eH *EnPassantSquareHistory) Push(square Square, ply uint16) {
 	eH.currentIndex++
 }
 
-func NewCastleHistory(startingLength int32) *CastleHistory {
+func NewCastleHistory(startingLength int32) CastleHistory {
 	slice := make([]CastleHistoryEntry, startingLength)
-	return &CastleHistory{slice: slice, currentIndex: 0}
+	return CastleHistory{slice: slice, currentIndex: 0}
 }
 
 func (cH *CastleHistory) MostRecentCapturePly() uint16 {
@@ -110,9 +110,9 @@ func (cH *CastleHistory) Push(castle uint8, ply uint16) {
 	cH.currentIndex++
 }
 
-func newFiftyMoveRuleHistory(startingLength int32) *FiftyMoveHistory {
+func newFiftyMoveRuleHistory(startingLength int32) FiftyMoveHistory {
 	slice := make([]FiftyMoveEntry, startingLength)
-	return &FiftyMoveHistory{slice: slice, currentIndex: 0}
+	return FiftyMoveHistory{slice: slice, currentIndex: 0}
 }
 
 func (fH *FiftyMoveHistory) lastReset() uint16 {
