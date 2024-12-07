@@ -214,7 +214,9 @@ func (s *State) MakeMove(move Move) {
 	}
 	s.turn = 1 - s.turn
 	s.hashcode ^= blackHash
-	//transpositionTable.Prefetch(s)
+	if !inQSearch {
+		transpositionTable.Prefetch(s)
+	}
 	s.hashHistory.Push(s.hashcode)
 	enemyKingBoard := s.board[enemyIndex+King]
 	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]

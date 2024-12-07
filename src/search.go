@@ -32,6 +32,8 @@ var startingDepth int32 = 0
 
 var lastMoveScore int32 = startingEval
 
+var inQSearch bool = false
+
 var historyTable HistoryTable = HistoryTable{}
 
 func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool) Move {
@@ -133,7 +135,10 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	}
 	if depth == 0 {
 		s.searchParameters.trueDepth -= 1
-		return s.QuiescenceSearch(alpha, beta)
+		inQSearch = true
+		qScore, qMove := s.QuiescenceSearch(alpha, beta)
+		inQSearch = false
+		return qScore, qMove
 	}
 	var captures *[]CaptureMove
 	var quiets *[]QuietMove
