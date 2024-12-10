@@ -73,7 +73,7 @@ func (s Square) File() int8 { return int8(s % 8) }
 
 func PopLSB(b *Bitboard) Square {
 	lsb := Square(bits.TrailingZeros64(uint64(*b)))
-	*b ^= (1 << Bitboard(lsb))
+	*b &= (*b - 1)
 	return lsb
 }
 
@@ -83,7 +83,7 @@ func GetLSB(b Bitboard) Square {
 
 func PopMSB(b *Bitboard) Square {
 	msb := 63 - Square(bits.LeadingZeros64(uint64(*b)))
-	*b ^= (1 << Bitboard(msb))
+	*b &= (*b - 1)
 	return msb
 }
 

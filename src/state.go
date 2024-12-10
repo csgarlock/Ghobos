@@ -64,6 +64,10 @@ type CaptureMove struct {
 	captureValue int32
 }
 
+// To be added to eventual worker struct
+var quietMoves QuietMoveList = newQuietMoveList(100)
+var captureMoves CaptureMoveList = newCaptureMoveList(50)
+
 func (s *State) MakeMove(move Move) {
 	s.lastCapOrPawn += 1
 	friendIndex := s.turn * 6
@@ -214,9 +218,6 @@ func (s *State) MakeMove(move Move) {
 	}
 	s.turn = 1 - s.turn
 	s.hashcode ^= blackHash
-	if !inQSearch {
-		transpositionTable.Prefetch(s)
-	}
 	s.hashHistory.Push(s.hashcode)
 	enemyKingBoard := s.board[enemyIndex+King]
 	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]
@@ -394,37 +395,37 @@ func (s *State) ensurePins(perspective uint8) {
 }
 
 func (s *State) quickGenMoves() *[]Move {
-	captures, quiets := s.genAllMoves(true)
-	moves := make([]Move, len(*captures)+len(*quiets))
+	s.genAllMoves(true)
+	moves := make([]Move, captureMoves.len()+quietMoves.len())
 	totalIndex := 0
-	badCutoff := len(*captures)
-	for i := 0; i < len(*captures); i++ {
-		if (*captures)[i].captureValue >= 0 {
-			moves[totalIndex] = (*captures)[i].move
+	badCutoff := captureMoves.len()
+	for i := uint16(0); i < captureMoves.len(); i++ {
+		if captureMoves.slice[i].captureValue >= 0 {
+			moves[totalIndex] = captureMoves.slice[i].move
 			totalIndex++
 		} else {
 			badCutoff = i
 			break
 		}
 	}
-	for i := 0; i < len(*quiets); i++ {
-		moves[totalIndex] = (*quiets)[i].move
+	for i := 0; i < int(quietMoves.len()); i++ {
+		moves[totalIndex] = quietMoves.slice[i].move
 		totalIndex++
 	}
-	for i := badCutoff; i < len(*captures); i++ {
-		moves[totalIndex] = (*captures)[i].move
+	for i := badCutoff; i < captureMoves.len(); i++ {
+		moves[totalIndex] = captureMoves.slice[i].move
 		totalIndex++
 	}
 	return &moves
 }
 
-func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
+func (s *State) genAllMoves(includeQuiets bool) {
 	// We want the pop function to pop the the bits at the top of the board relative to whos turn
 	// it is. So when it's white's turn we pop the most significant bit first and with black
 	// we pop the least significant bit first
 	s.ensurePins(s.turn)
-	captures := make([]CaptureMove, 0, 20)
-	quiets := make([]QuietMove, 0, 20)
+	quietMoves.reset()
+	captureMoves.reset()
 	var friendIndex uint8 = s.turn * 6
 	var enemyIndex uint8 = (1 - s.turn) * 6
 	friendBoard := s.sideOccupied[s.turn]
@@ -452,13 +453,13 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 			for sliderAttacks != 0 {
 				attackSquare := PopLSB(&sliderAttacks)
 				attackedPiece := s.board.getPieceAt(attackSquare)
-				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Bishop]})
+				captureMoves.addMove(CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Bishop]})
 			}
 			if includeQuiets {
 				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
 				for sliderQuiets != 0 {
 					quietSquare := PopLSB(&sliderQuiets)
-					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Bishop][quietSquare]})
+					quietMoves.addMove(QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Bishop][quietSquare]})
 				}
 			}
 		}
@@ -476,13 +477,13 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 				for knightAttacks != 0 {
 					attackSquare := PopLSB(&knightAttacks)
 					attackedPiece := s.board.getColorPieceAt(attackSquare, 1-s.turn)
-					captures = append(captures, CaptureMove{BuildSimpleMove(knightSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Knight]})
+					captureMoves.addMove(CaptureMove{BuildSimpleMove(knightSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Knight]})
 				}
 				if includeQuiets {
 					knightQuiets := knightMoves & notOccupied & checkBlockerSquares
 					for knightQuiets != 0 {
 						quietSquare := PopLSB(&knightQuiets)
-						quiets = append(quiets, QuietMove{BuildSimpleMove(knightSquare, quietSquare), historyTable[pieceIndex][quietSquare]})
+						quietMoves.addMove(QuietMove{BuildSimpleMove(knightSquare, quietSquare), historyTable[pieceIndex][quietSquare]})
 					}
 				}
 			}
@@ -500,13 +501,13 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 			for sliderAttacks != 0 {
 				attackSquare := PopLSB(&sliderAttacks)
 				attackedPiece := s.board.getPieceAt(attackSquare)
-				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Queen]})
+				captureMoves.addMove(CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Queen]})
 			}
 			if includeQuiets {
 				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
 				for sliderQuiets != 0 {
 					quietSquare := PopLSB(&sliderQuiets)
-					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Queen][quietSquare]})
+					quietMoves.addMove(QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Queen][quietSquare]})
 				}
 			}
 		}
@@ -523,13 +524,13 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 			for sliderAttacks != 0 {
 				attackSquare := PopLSB(&sliderAttacks)
 				attackedPiece := s.board.getPieceAt(attackSquare)
-				captures = append(captures, CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Rook]})
+				captureMoves.addMove(CaptureMove{BuildSimpleMove(sliderSquare, attackSquare), valueTable[attackedPiece%6] - valueTable[Rook]})
 			}
 			if includeQuiets {
 				sliderQuiets := sliderMoves & s.notOccupied & safeSquares & checkBlockerSquares
 				for sliderQuiets != 0 {
 					quietSquare := PopLSB(&sliderQuiets)
-					quiets = append(quiets, QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Rook][quietSquare]})
+					quietMoves.addMove(QuietMove{BuildSimpleMove(sliderSquare, quietSquare), historyTable[friendIndex+Rook][quietSquare]})
 				}
 			}
 		}
@@ -557,18 +558,18 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 				if attackSquare == s.enPassantSquare {
 					if s.canEnpassant {
 						if s.EnPassantSafetyCheck(pawnSquare, attackSquare, friendIndex, enemyIndex, occupied) {
-							captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 0, EnPassantSpacialMove), 0})
+							captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 0, EnPassantSpacialMove), 0})
 						}
 					}
 				} else {
 					attackValue := valueTable[attackedPiece%6] - valueTable[Pawn]
 					if attackSquare.Rank() == promotionRank {
-						captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 0, PromotionSpecialMove), attackValue})
-						captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 1, PromotionSpecialMove), attackValue})
-						captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 2, PromotionSpecialMove), attackValue})
-						captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 3, PromotionSpecialMove), attackValue})
+						captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 0, PromotionSpecialMove), attackValue})
+						captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 1, PromotionSpecialMove), attackValue})
+						captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 2, PromotionSpecialMove), attackValue})
+						captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 3, PromotionSpecialMove), attackValue})
 					} else {
-						captures = append(captures, CaptureMove{BuildMove(pawnSquare, attackSquare, 0, 0), attackValue})
+						captureMoves.addMove(CaptureMove{BuildMove(pawnSquare, attackSquare, 0, 0), attackValue})
 					}
 				}
 			}
@@ -578,12 +579,12 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 					desSquare := PopLSB(&pawnMoves)
 					historyValue := historyTable[Pawn+friendIndex][desSquare]
 					if desSquare.Rank() == promotionRank {
-						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 0, PromotionSpecialMove), historyValue})
-						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 1, PromotionSpecialMove), historyValue})
-						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 2, PromotionSpecialMove), historyValue})
-						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 3, PromotionSpecialMove), historyValue})
+						quietMoves.addMove(QuietMove{BuildMove(pawnSquare, desSquare, 0, PromotionSpecialMove), historyValue})
+						quietMoves.addMove(QuietMove{BuildMove(pawnSquare, desSquare, 1, PromotionSpecialMove), historyValue})
+						quietMoves.addMove(QuietMove{BuildMove(pawnSquare, desSquare, 2, PromotionSpecialMove), historyValue})
+						quietMoves.addMove(QuietMove{BuildMove(pawnSquare, desSquare, 3, PromotionSpecialMove), historyValue})
 					} else {
-						quiets = append(quiets, QuietMove{BuildMove(pawnSquare, desSquare, 0, 0), historyValue})
+						quietMoves.addMove(QuietMove{BuildMove(pawnSquare, desSquare, 0, 0), historyValue})
 					}
 				}
 			}
@@ -600,7 +601,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 		desSquare := PopLSB(&kingAttacks)
 		attackedPiece := s.board.getColorPieceAt(desSquare, 1-s.turn)
 		if isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-			captures = append(captures, CaptureMove{BuildSimpleMove(kingSquare, desSquare), valueTable[attackedPiece%6] - valueTable[King]})
+			captureMoves.addMove(CaptureMove{BuildSimpleMove(kingSquare, desSquare), valueTable[attackedPiece%6] - valueTable[King]})
 		}
 	}
 	if includeQuiets {
@@ -608,7 +609,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 		for kingQuiets != 0 {
 			desSquare := PopLSB(&kingQuiets)
 			if isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-				quiets = append(quiets, QuietMove{BuildSimpleMove(kingSquare, desSquare), historyTable[King+friendIndex][desSquare]})
+				quietMoves.addMove(QuietMove{BuildSimpleMove(kingSquare, desSquare), historyTable[King+friendIndex][desSquare]})
 			}
 		}
 	}
@@ -620,7 +621,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 			if occupied&Bitboard(0x60<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x80<<rankIndex) != 0 {
 				desSquare := kingSquare + 2
 				if isSquareSafe(Square(5+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
+					quietMoves.addMove(QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
 				}
 			}
 		}
@@ -630,7 +631,7 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 			if occupied&Bitboard(0xE<<rankIndex) == 0 && s.board[friendIndex+Rook]&Bitboard(0x1<<rankIndex) != 0 {
 				desSquare := kingSquare - 2
 				if isSquareSafe(Square(3+rankIndex), noKingFriendBoard, safetyCheckBoard, s.turn) && isSquareSafe(desSquare, noKingFriendBoard, safetyCheckBoard, s.turn) {
-					quiets = append(quiets, QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
+					quietMoves.addMove(QuietMove{BuildMove(kingSquare, desSquare, 0, CastleSpecialMove), historyTable[King+friendIndex][desSquare]})
 				}
 			}
 		}
@@ -638,7 +639,6 @@ func (s *State) genAllMoves(includeQuiets bool) (*[]CaptureMove, *[]QuietMove) {
 	}
 	// Castle End
 	// End King
-	return &captures, &quiets
 }
 
 // Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king expose

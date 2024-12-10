@@ -1,9 +1,5 @@
 package main
 
-import (
-	"unsafe"
-)
-
 // first 14 bits contain depth that this node was searched to
 // last 2 bits contain what type of node it is 0 = PV, 1 = Cut, 2 = All
 type NodeInfo uint16
@@ -41,9 +37,6 @@ var tableCapacity uint64
 var tableSize uint64
 var transpositionTable TranspositionTable
 
-//go:noescape
-func Prefetch(dPrt unsafe.Pointer)
-
 // capacity is in megabytes
 func SetupTable(capacity uint64) {
 	tableCapacity = capacity * megabytesToBytes
@@ -65,13 +58,6 @@ func (tt *TranspositionTable) SearchState(s *State) (TableData, bool) {
 		return (*tt)[index].data, true
 	}
 	return TableData{}, false
-}
-
-func (tt *TranspositionTable) Prefetch(s *State) {
-	hash := s.hashcode
-	addressOffset := (hash % tableSize) * EntrySize
-	dataPointer := unsafe.Pointer(uintptr(unsafe.Pointer(unsafe.SliceData(*tt))) + uintptr(addressOffset))
-	Prefetch(dataPointer)
 }
 
 // First return is depth, second is node type

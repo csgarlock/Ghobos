@@ -2,11 +2,16 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"strings"
 	"time"
 )
 
 func main() {
+	go func() {
+		http.ListenAndServe("localhost:6060", nil)
+	}()
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
