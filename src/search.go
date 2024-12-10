@@ -27,8 +27,6 @@ const (
 
 var nodesSearched uint64 = 0
 
-var startingDepth int32 = 0
-
 var lastMoveScore int32 = startingEval
 
 var historyTable HistoryTable = HistoryTable{}
@@ -54,9 +52,8 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool)
 			fmt.Println("Search time left: ", maxTime-time.Since(startTime))
 			fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
 		}
-		startingDepth = currentDepth
 		nodesSearched = 0
-		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, true, true)
+		stateScore, contendingMove = s.NegaMax(currentDepth, aspirationWindowLow, aspirationWindowHigh, true, true, true)
 		totalNodes += nodesSearched
 		if debugPrint {
 			effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
@@ -110,7 +107,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool)
 	return bestFoundMove
 }
 
-func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skipNull bool) (int32, Move) {
+func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skipNull bool, forceSearch bool) (int32, Move) {
 	s.searchParameters.trueDepth += 1
 	nodesSearched++
 	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hashcode) >= 3 {
@@ -121,17 +118,29 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	projectedBestMove := NilMove
 	if found {
 		ttEval := EvalLowToHigh(result.eval)
-		_, ttNodeType := result.depthAndNode.parseDepthandNode()
+		ttDepth, ttNodeType := result.depthAndNode.parseDepthandNode()
 		if ttNodeType == TerminalNode {
-			s.searchParameters.trueDepth -= 1
+			s.searchParameters.trueDepth--
 			return clampInt32(ttEval, alpha, beta), NilMove
 		}
 		projectedBestMove = result.bestMove
+		if !forceSearch && ttDepth >= uint16(depth) {
+			if ttNodeType == AllNode && ttEval <= alpha {
+				s.searchParameters.trueDepth--
+				return alpha, projectedBestMove
+			} else if ttNodeType == CutNode && ttEval >= beta {
+				s.searchParameters.trueDepth--
+				return beta, projectedBestMove
+			} else if ttNodeType == pVNode && ttEval >= alpha && ttEval <= beta {
+				s.searchParameters.trueDepth--
+				return ttEval, projectedBestMove
+			}
+		}
 	} else if depth > 5 && !skipIID {
-		_, projectedBestMove = s.NegaMax(depth/2, alpha, beta, true, true)
+		_, projectedBestMove = s.NegaMax(depth/2, alpha, beta, true, true, true)
 	}
 	if depth == 0 {
-		s.searchParameters.trueDepth -= 1
+		s.searchParameters.trueDepth--
 		qScore, qMove := s.QuiescenceSearch(alpha, beta)
 		return qScore, qMove
 	}
@@ -151,12 +160,12 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	if captureMoves.len() == 0 && quietMoves.len() == 0 && !futileNode {
 		if s.check {
 			eval := LowestEval + (int32(s.searchParameters.trueDepth) * CentiPawn)
-			transpositionTable.AddState(s, eval, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
-			s.searchParameters.trueDepth -= 1
+			transpositionTable.AddState(s, eval, NilMove, uint16(depth), TerminalNode)
+			s.searchParameters.trueDepth--
 			return clampInt32(eval, alpha, beta), NilMove
 		} else {
-			transpositionTable.AddState(s, 0, NilMove, uint16(startingDepth)-uint16(depth), TerminalNode)
-			s.searchParameters.trueDepth -= 1
+			transpositionTable.AddState(s, 0, NilMove, uint16(depth), TerminalNode)
+			s.searchParameters.trueDepth--
 			return clampInt32(0, alpha, beta), NilMove
 		}
 	}
@@ -166,7 +175,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	} else {
 		moves = s.orderCaptureMoves()
 		if len(moves) == 0 {
-			s.searchParameters.trueDepth -= 1
+			s.searchParameters.trueDepth--
 			return alpha, NilMove
 		}
 	}
@@ -181,11 +190,11 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		}
 		if hasBigPiece {
 			s.MakeMove(PassingMove)
-			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -beta+1, false, false)
+			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -beta+1, false, false, false)
 			score *= -1
 			s.UnMakeMove(PassingMove)
 			if score >= beta {
-				s.searchParameters.trueDepth -= 1
+				s.searchParameters.trueDepth--
 				return beta, PassingMove
 			}
 		}
@@ -202,22 +211,22 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			}
 		}
 		s.MakeMove(move)
-		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false)
+		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false, false)
 		score *= -1
 		if score > alpha && reduction > 0 {
-			score, _ = s.NegaMax(depth-1, -beta, -alpha, false, false)
+			score, _ = s.NegaMax(depth-1, -beta, -alpha, false, false, false)
 			score *= -1
 		}
 		s.UnMakeMove(move)
 		if score >= beta {
-			transpositionTable.AddState(s, beta, move, uint16(startingDepth)-uint16(depth), CutNode)
+			transpositionTable.AddState(s, beta, move, uint16(depth), CutNode)
 			friendPiece := s.board.getColorPieceAt(move.OriginSquare(), s.turn)
 			enemyPiece := s.board.getColorPieceAt(move.DestinationSquare(), 1-s.turn)
 			if enemyPiece == NoPiece {
 				historyTable[friendPiece][move.DestinationSquare()] += uint64(depth * depth)
 				s.addKiller(move)
 			}
-			s.searchParameters.trueDepth -= 1
+			s.searchParameters.trueDepth--
 			return beta, move
 		}
 		if score > alpha {
@@ -227,11 +236,11 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		}
 	}
 	if allNode {
-		transpositionTable.AddState(s, alpha, bestMove, uint16(startingDepth)-uint16(depth), AllNode)
+		transpositionTable.AddState(s, alpha, bestMove, uint16(depth), AllNode)
 	} else {
-		transpositionTable.AddState(s, alpha, bestMove, uint16(startingDepth)-uint16(depth), pVNode)
+		transpositionTable.AddState(s, alpha, bestMove, uint16(depth), pVNode)
 	}
-	s.searchParameters.trueDepth -= 1
+	s.searchParameters.trueDepth--
 	return alpha, bestMove
 }
 
