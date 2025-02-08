@@ -111,7 +111,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	s.searchParameters.trueDepth += 1
 	nodesSearched++
 	if s.lastCapOrPawn >= 100 || s.repetitionMap.get(s.hashcode) >= 3 {
-		s.searchParameters.trueDepth -= 1
+		s.searchParameters.trueDepth--
 		return 0, NilMove
 	}
 	result, found := transpositionTable.SearchState(s)
@@ -145,9 +145,8 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		return qScore, qMove
 	}
 	futileNode := false
-	staticEval := int32(0) // Only set if the below conditions are met
 	if depth == 1 && !s.check && alpha > -asperationMateSearchCutoff && beta < asperationMateSearchCutoff {
-		staticEval = s.EvalState(s.turn)
+		staticEval := s.EvalState(s.turn)
 		if staticEval < alpha-FutilityCutoff {
 			s.genAllMoves(false)
 			futileNode = true
@@ -211,11 +210,17 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			}
 		}
 		s.MakeMove(move)
-		score, _ := s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false, false)
-		score *= -1
-		if score > alpha && reduction > 0 {
-			score, _ = s.NegaMax(depth-1, -beta, -alpha, false, false, false)
+		score := int32(0)
+		if i == 0 {
+			score, _ = s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false, false)
 			score *= -1
+		} else {
+			score, _ = s.NegaMax(max(depth-reduction-1, 0), -alpha-1, -alpha, false, false, false)
+			score *= -1
+			if score > alpha && beta-alpha > 1 {
+				score, _ = s.NegaMax(depth-1, -beta, -alpha, false, false, false)
+				score *= -1
+			}
 		}
 		s.UnMakeMove(move)
 		if score >= beta {
