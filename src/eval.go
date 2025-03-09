@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -274,6 +275,23 @@ func (s *State) NormalizedEval(perspective uint8) float64 {
 func NormalizeEval(rawEval int32) float64 {
 	centiEval := rawEval / CentiPawn
 	return float64(centiEval) / 100.0
+}
+
+func prettyEval(rawEval int32, perspective uint8) string {
+	mateSign := int32(1)
+	if rawEval < 0 {
+		mateSign = -1
+	}
+	absRawEval := rawEval * mateSign
+	if absRawEval > mateValueCutoff {
+		mateDepth := highestEval - absRawEval
+		if (mateSign == 1 && perspective == White) || (mateSign == -1 && perspective == Black) {
+			return fmt.Sprintf("+M%d", mateDepth)
+		} else {
+			return fmt.Sprintf("-M%d", mateDepth)
+		}
+	}
+	return fmt.Sprintf("%.2f", NormalizeEval(rawEval))
 }
 
 func EvalHighToLow(eval int32) int16 {

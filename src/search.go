@@ -20,6 +20,8 @@ const (
 
 	asperationMateSearchCutoff int32 = CentiPawn * 2000
 
+	mateValueCutoff int32 = CentiPawn * 30000
+
 	NullMoveReduction = 2
 
 	FutilityCutoff int32 = CentiPawn * 300
@@ -48,6 +50,13 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool)
 	stateScore := stateEvalGuess
 	lastSearchNodes := uint64(1)
 	for time.Since(startTime) < maxTime {
+		if stateScore > mateValueCutoff {
+			aspirationWindowLow = mateValueCutoff
+			aspirationWindowHigh = max32
+		} else if stateScore < -mateValueCutoff {
+			aspirationWindowLow = min32
+			aspirationWindowHigh = -mateValueCutoff
+		}
 		if debugPrint {
 			fmt.Println("Search time left: ", maxTime-time.Since(startTime))
 			fmt.Printf("Searching next depth with window [%f, %f]\n", NormalizeEval(aspirationWindowLow), NormalizeEval(aspirationWindowHigh))
@@ -57,7 +66,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool)
 		totalNodes += nodesSearched
 		if debugPrint {
 			effectiveBranchFactor := float64(nodesSearched) / float64(lastSearchNodes)
-			fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %.2f, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), NormalizeEval(stateScore), effectiveBranchFactor)
+			fmt.Printf("Searched to Depth: %d, Best Move: %s, Score: %s, EBF: %.2f\n", currentDepth, contendingMove.ShortString(), prettyEval(stateScore, s.turn), effectiveBranchFactor)
 		}
 		// Check if returned score was at bounds of aspiration window
 		if stateScore == aspirationWindowLow {
@@ -100,6 +109,7 @@ func (s *State) IterativeDeepiningSearch(maxTime time.Duration, debugPrint bool)
 		}
 	}
 	fmt.Println("Best Move:", bestFoundMove.ShortString())
+	fmt.Println("Move Evaluation:", prettyEval(stateScore, s.turn))
 	fmt.Println("Expected Moves:", s.getPV())
 	fmt.Println("Total Nodes Searched:", totalNodes)
 	fmt.Println("Total Search Time:", time.Since(startTime))
@@ -121,7 +131,11 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 		ttDepth, ttNodeType := result.depthAndNode.parseDepthandNode()
 		if ttNodeType == TerminalNode {
 			s.searchParameters.trueDepth--
-			return clampInt32(ttEval, alpha, beta), NilMove
+			if ttEval == mateTranspositionValue {
+				return clampInt32(LowestEval+int32(s.searchParameters.trueDepth), alpha, beta), NilMove
+			} else {
+				return clampInt32(0, alpha, beta), NilMove
+			}
 		}
 		projectedBestMove = result.bestMove
 		if !forceSearch && ttDepth >= uint16(depth) {
@@ -158,12 +172,12 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	}
 	if captureMoves.len() == 0 && quietMoves.len() == 0 && !futileNode {
 		if s.check {
-			eval := LowestEval + (int32(s.searchParameters.trueDepth) * CentiPawn)
-			transpositionTable.AddState(s, eval, NilMove, uint16(depth), TerminalNode)
+			eval := LowestEval + int32(s.searchParameters.trueDepth)
+			transpositionTable.AddState(s, mateTranspositionValue, NilMove, uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth--
 			return clampInt32(eval, alpha, beta), NilMove
 		} else {
-			transpositionTable.AddState(s, 0, NilMove, uint16(depth), TerminalNode)
+			transpositionTable.AddState(s, stalemateTranpositionValue, NilMove, uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth--
 			return clampInt32(0, alpha, beta), NilMove
 		}
