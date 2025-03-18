@@ -194,14 +194,8 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 	}
 	if !s.check && depth > 2 && !skipNull {
 		friendIndex := s.turn * 6
-		hasBigPiece := false
-		for i := uint8(1); i < 5; i++ {
-			if s.board[friendIndex+i] != 0 {
-				hasBigPiece = true
-				break
-			}
-		}
-		if hasBigPiece {
+		hasNonPawn := s.sideOccupied[s.turn] & ^(s.board[friendIndex+King]|s.board[friendIndex+Pawn]) != 0
+		if hasNonPawn {
 			s.MakeMove(PassingMove)
 			score, _ := s.NegaMax(max(depth-NullMoveReduction-1, 1), -beta, -beta+1, false, false, false)
 			score *= -1
