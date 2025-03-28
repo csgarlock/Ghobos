@@ -67,6 +67,7 @@ type CaptureMove struct {
 // To be added to eventual worker struct
 var quietMoves QuietMoveList = newQuietMoveList(100)
 var captureMoves CaptureMoveList = newCaptureMoveList(50)
+var moveStack MoveListStack = newMoveListStack(50, 100)
 
 func (s *State) MakeMove(move Move) {
 	s.lastCapOrPawn += 1
@@ -420,9 +421,6 @@ func (s *State) quickGenMoves() *[]Move {
 }
 
 func (s *State) genAllMoves(includeQuiets bool) {
-	// We want the pop function to pop the the bits at the top of the board relative to whos turn
-	// it is. So when it's white's turn we pop the most significant bit first and with black
-	// we pop the least significant bit first
 	s.ensurePins(s.turn)
 	quietMoves.reset()
 	captureMoves.reset()
@@ -641,7 +639,11 @@ func (s *State) genAllMoves(includeQuiets bool) {
 	// End King
 }
 
-// Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king expose
+func genPieceMoves[T Piece](pieceType T, moveStack MoveListStack) {
+
+}
+
+// Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king exposed
 func (s *State) getPinBoard(pinnedSquare Square, kingSquare Square, perspective uint8) Bitboard {
 	if s.pinInfo.pinnedBoards[perspective]&boardFromSquare(pinnedSquare) != 0 {
 		pinnerSquare := s.pinInfo.pinners[perspective][getStepId(squareToSquareStep[kingSquare][pinnedSquare])]

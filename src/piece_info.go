@@ -54,6 +54,21 @@ const (
 	NoPiece = 12
 )
 
+type Piece interface {
+	// Params:
+	// Square: square the piece is on
+	// Bitboard: occupied squares
+	// Bitboard: mask for moves
+	getMoveBitboard(Square, Bitboard, Bitboard) Bitboard
+}
+
+type KingTemplate struct{}
+type QueenTemplate struct{}
+type RookTemplate struct{}
+type BishopTemplate struct{}
+type KnightTemplate struct{}
+type PawnTemplate struct{}
+
 var stepMap map[Step]int = map[Step]int{RightStep: 0, UpRightStep: 1, UpStep: 2, UpLeftStep: 3, LeftStep: 4, DownLeftStep: 5, DownStep: 6, DownRightStep: 7, KnightStepRightUp: 8, KnightStepUpRight: 9, KnightStepUpLeft: 10, KnightStepLeftUp: 11, KnightStepLeftDown: 12, KnightStepDownLeft: 13, KnightStepDownRight: 14, KnightStepRightDown: 15}
 var stepIds [19]uint8 = [19]uint8{}
 
@@ -73,6 +88,37 @@ var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
 
 // Can the piece do the slide (canSlide[pieceID][stepID])
 var canSlide [12][8]bool = [12][8]bool{}
+
+var kingInstance KingTemplate = KingTemplate{}
+var queenInstance QueenTemplate = QueenTemplate{}
+var rookInstance RookTemplate = RookTemplate{}
+var bishopInstance BishopTemplate = BishopTemplate{}
+var knightInstance KnightTemplate = KnightTemplate{}
+var pawnInstance PawnTemplate = PawnTemplate{}
+
+func (KingTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
+	return moveBoards[King][square] & mask
+}
+
+func (QueenTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
+	return getQueenMoves(square, occupied) & mask
+}
+
+func (RookTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
+	return getRookMoves(square, occupied) & mask
+}
+
+func (BishopTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
+	return getBishopMoves(square, occupied) & mask
+}
+
+func (KnightTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
+	return moveBoards[Knight][square] & mask
+}
+
+func (PawnTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
+	return EmptyBitboard
+}
 
 func InitializeMoveBoards() {
 	InitializeStepBoard()

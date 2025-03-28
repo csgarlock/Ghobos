@@ -15,8 +15,17 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
-	SetupTable(4096)
-	UIGame()
+	moveStack.getCurrent().setupQuietLoading()
+	moveStack.addCurrent(SimpleMoveFromString("d2d1"))
+	moveStack.addCurrent(SimpleMoveFromString("d2d2"))
+	moveStack.addCurrent(SimpleMoveFromString("d2d3"))
+	moveStack.addCurrent(SimpleMoveFromString("d2d4"))
+	moveStack.addCurrent(SimpleMoveFromString("d2d5"))
+	for moveStack.getCurrent().nextMove() {
+		fmt.Println(moveStack.getCurrent().getMove().ShortString())
+	}
+	// SetupTable(4096)
+	// UIGame()
 }
 
 func UIGame() {
@@ -38,7 +47,7 @@ func UIGame() {
 			break
 		}
 	}
-	gameState := StartingFen()
+	gameState := FenState("7k/5bpr/4R3/q3b3/1p5N/3B4/p3K1Q1/8 w - - 0 2")
 	gameOver := false
 	playerTurn := false
 	if playerSide == gameState.turn {

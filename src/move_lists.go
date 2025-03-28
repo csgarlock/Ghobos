@@ -12,6 +12,106 @@ type CaptureMoveList struct {
 	firstEmpty uint16
 }
 
+type MoveListStack struct {
+	moveLists []MoveList
+	current   uint16
+}
+
+type MoveList struct {
+	slice         []Move
+	firstEmpty    uint16
+	searchPointer uint16
+	// The first capture that has not been searched
+	captureRemainsPointer uint16
+	quietStartPinter      uint16
+	secondCaputurePass    bool
+}
+
+func newMoveListStack(stackSize uint16, sliceSize uint16) MoveListStack {
+	moveStackList := MoveListStack{make([]MoveList, stackSize), 0}
+	for i := range moveStackList.moveLists {
+		moveStackList.moveLists[i].reset()
+		moveStackList.moveLists[i].slice = make([]Move, sliceSize)
+	}
+	return moveStackList
+}
+
+func (moveStack *MoveListStack) incrementStack() {
+	moveStack.current++
+	if moveStack.current >= uint16(len(moveStack.moveLists)) {
+		panic("Too Many MoveLists")
+	}
+}
+
+func (moveStack *MoveListStack) decrementStack() {
+	moveStack.current--
+	if moveStack.current < 0 {
+		panic("Too few MoveLists")
+	}
+}
+
+func (moveStack *MoveListStack) resetCurrent() {
+	moveStack.moveLists[moveStack.current].reset()
+}
+
+func (moveStack *MoveListStack) getCurrent() *MoveList {
+	return &moveStack.moveLists[moveStack.current]
+}
+
+func (moveStack *MoveListStack) addCurrent(move Move) {
+	moveStack.moveLists[moveStack.current].addMove(move)
+}
+
+// Resets all pointers to 0 other than search pointer. Sets search pointer to
+// 2 ^ 16 - 1. Reasoning for this is calling nextMove() as a loop condition will
+// skip the first item if searchPointer starts at 0
+func (moveList *MoveList) reset() {
+	moveList.firstEmpty = 0
+	moveList.searchPointer = uint16(65535)
+	moveList.captureRemainsPointer = 0
+	moveList.quietStartPinter = 0
+}
+
+func (moveList *MoveList) addMove(move Move) {
+	moveList.slice[moveList.firstEmpty] = move
+	moveList.firstEmpty++
+}
+
+// Moves the searchPointer to the next move and returns whether there is another move
+func (moveList *MoveList) nextMove() bool {
+	moveList.searchPointer++
+	if !moveList.secondCaputurePass {
+		if moveList.searchPointer < moveList.firstEmpty {
+			return true
+		} else {
+			if moveList.captureRemainsPointer == moveList.quietStartPinter {
+				return false
+			} else {
+				moveList.secondCaputurePass = true
+				moveList.searchPointer = moveList.captureRemainsPointer
+				return true
+			}
+		}
+	} else {
+		if moveList.searchPointer < moveList.quietStartPinter {
+			return true
+		} else {
+			return false
+		}
+	}
+}
+
+func (moveList *MoveList) getMove() Move {
+	return moveList.slice[moveList.searchPointer]
+}
+
+// Assumes the capture move currently at search pointer has not yet been searched
+func (moveList *MoveList) setupQuietLoading() {
+	moveList.captureRemainsPointer = moveList.searchPointer + 1
+	moveList.searchPointer = moveList.firstEmpty - 1
+	moveList.quietStartPinter = moveList.firstEmpty
+}
+
 func newQuietMoveList(size uint16) QuietMoveList {
 	return QuietMoveList{make([]QuietMove, size), 0}
 }
