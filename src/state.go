@@ -20,6 +20,13 @@ type PinInfo struct {
 	pinsSet      [2]bool
 }
 
+type CheckInfo struct {
+	checkers                  uint8
+	checksSet                 bool
+	blockingBitboard          Bitboard
+	enPassantBlockingBitboard Bitboard
+}
+
 // 0 = White King Side, 1 = Black King Side, 2 = White Queen Side, 3 = Black Queen Side
 type CastleAvailability [4]bool
 type State struct {
@@ -28,6 +35,7 @@ type State struct {
 	occupied               Bitboard
 	notOccupied            Bitboard
 	pinInfo                PinInfo
+	checkInfo              CheckInfo
 	turn                   uint8 // 0 for White, 1 for Black
 	enPassantSquare        Square
 	check                  bool
@@ -341,7 +349,7 @@ func (s *State) clearPins(perspective uint8) {
 	s.pinInfo.pinners[perspective] = [8]Square{NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare, NullSquare}
 }
 
-// Check for possible pins by interating through sliding pieces instead of by checking in all directions from the king like a doofus because 5 < 8
+// Check for possible pins by iterating through sliding pieces instead of by checking in all directions from the king like a doofus because 5 < 8
 func (s *State) ensurePins(perspective uint8) {
 	if !s.pinInfo.pinsSet[perspective] {
 		s.clearPins(perspective)
@@ -391,6 +399,66 @@ func (s *State) ensurePins(perspective uint8) {
 					s.pinInfo.pinners[perspective][getStepId(step)] = queenSquare
 				}
 			}
+		}
+	}
+}
+
+func (s *State) clearChecks() {
+	s.checkInfo.checkers = 0
+	s.checkInfo.checksSet = false
+	s.checkInfo.blockingBitboard = EmptyBitboard
+	s.checkInfo.enPassantBlockingBitboard = EmptyBitboard
+}
+
+func (s *State) ensureChecks() {
+	if !s.checkInfo.checksSet {
+		s.checkInfo.checksSet = true
+		friendIndex := 6 * s.turn
+		enemyIndex := 6 * (1 - s.turn)
+		kingSquare := GetLSB(s.board[friendIndex+King])
+		bishopCast := getBishopMoves(kingSquare, s.occupied)
+		bishopSliders := s.board[enemyIndex+Bishop] | s.board[enemyIndex+Queen]
+		bishopChecker := bishopCast & bishopSliders
+		if bishopChecker != EmptyBitboard {
+			s.checkInfo.checkers++
+			if s.checkInfo.checkers > 1 {
+				return
+			}
+			s.checkInfo.blockingBitboard = squareToSquareFillBoards[kingSquare][GetLSB(bishopChecker)] | bishopChecker
+		}
+		rookCast := getRookMoves(kingSquare, s.occupied)
+		rookSliders := s.board[enemyIndex+Rook] | s.board[enemyIndex+Queen]
+		rookChecker := rookCast & rookSliders
+		if rookChecker != EmptyBitboard {
+			s.checkInfo.checkers++
+			if s.checkInfo.checkers > 1 {
+				return
+			}
+			s.checkInfo.blockingBitboard = squareToSquareFillBoards[kingSquare][GetLSB(rookChecker)] | rookChecker
+		}
+		knightCast := moveBoards[Knight][kingSquare]
+		knightChecker := knightCast & s.board[enemyIndex+Knight]
+		if knightChecker != EmptyBitboard {
+			s.checkInfo.checkers++
+			if s.checkInfo.checkers > 1 {
+				return
+			}
+			s.checkInfo.blockingBitboard = knightChecker
+		}
+		pawnCast := pawnAttackBoards[s.turn][kingSquare]
+		pawnChecker := pawnCast & s.board[enemyIndex+Pawn]
+		if pawnChecker != EmptyBitboard {
+			s.checkInfo.checkers++
+			if s.checkInfo.checkers > 1 {
+				return
+			}
+			s.checkInfo.blockingBitboard = pawnChecker
+			if s.canEnpassant {
+				s.checkInfo.enPassantBlockingBitboard = boardFromSquare(s.enPassantSquare)
+			}
+		}
+		if s.checkInfo.checkers == 0 {
+			s.checkInfo.blockingBitboard = UniversalBitboard
 		}
 	}
 }
@@ -546,7 +614,7 @@ func (s *State) genAllMoves(includeQuiets bool) {
 			homeRank = 6
 			promotionRank = 0
 		}
-		for pawnBoard != 0 {
+		for pawnBoard != EmptyBitboard {
 			pawnSquare := PopLSB(&pawnBoard)
 			safeBoard := s.getPinBoard(pawnSquare, kingSquare, s.turn)
 			pawnAttacks := pawnAttackBoards[s.turn][pawnSquare] & enemyEnPassantBoard & safeBoard & (checkBlockerSquares | enPassantCheckBlockerSquares)
@@ -639,8 +707,36 @@ func (s *State) genAllMoves(includeQuiets bool) {
 	// End King
 }
 
-func genPieceMoves[T Piece](pieceType T, moveStack MoveListStack) {
+func (s *State) NewGenMoves(captures bool, mask Bitboard) {
+	s.ensureChecks()
+	mask &= ^s.sideOccupied[s.turn]
+	if captures {
+		mask &= s.sideOccupied[1-s.turn]
+	} else {
+		mask &= s.notOccupied
+	}
+	blockMask := mask & s.checkInfo.blockingBitboard
+	friendIndex := 6 * s.turn
+	moveList := moveStack.getCurrent()
+	if s.checkInfo.checkers < 2 {
+		genPieceMoves(bishopInstance, s.board[friendIndex+Bishop], s.occupied, blockMask, moveList)
+		genPieceMoves(knightInstance, s.board[friendIndex+Knight], s.occupied, blockMask, moveList)
+		genPieceMoves(queenInstance, s.board[friendIndex+Queen], s.occupied, blockMask, moveList)
+		genPieceMoves(rookInstance, s.board[friendIndex+Rook], s.occupied, blockMask, moveList)
+		s.genAllPawnMoves(captures, blockMask, moveList)
+	}
+	s.genKingMoves(captures, mask, moveList)
+}
 
+func genPieceMoves[T Piece](pieceType T, pieceBoard Bitboard, occupied Bitboard, mask Bitboard, moveList *MoveList) {
+	for pieceBoard != EmptyBitboard {
+		pieceSquare := PopLSB(&pieceBoard)
+		moveBitboard := pieceType.getMoveBitboard(pieceSquare, occupied) & mask
+		for moveBitboard != EmptyBitboard {
+			desSquare := PopLSB(&moveBitboard)
+			moveList.addMove(BuildSimpleMove(pieceSquare, desSquare))
+		}
+	}
 }
 
 // Given a square returns a Bitboard with all the squares that the piece can move to and not leave the king exposed
@@ -672,6 +768,31 @@ func isSquareSafe(square Square, friendBoard Bitboard, enemyBoards *SafetyCheckB
 	}
 	pawnCast := pawnAttackBoards[turn][square]
 	return pawnCast&enemyBoards.pawnsBoard == 0
+}
+
+func (s *State) isSquareSafeEasy(square Square) bool {
+	enemyIndex := 6 * (1 - s.turn)
+	bishopCast := getBishopMoves(square, s.occupied)
+	if bishopCast&(s.board[enemyIndex+Bishop]|s.board[enemyIndex+Queen]) != EmptyBitboard {
+		return false
+
+	}
+	rookCast := getRookMoves(square, s.occupied)
+	if rookCast&(s.board[enemyIndex+Rook]|s.board[enemyIndex+Queen]) != EmptyBitboard {
+		return false
+
+	}
+	knightCast := moveBoards[Knight][square]
+	if knightCast&s.board[enemyIndex+Knight] != EmptyBitboard {
+		return false
+	}
+	kingCast := moveBoards[Knight][square]
+	if kingCast&s.board[enemyIndex+King] != EmptyBitboard {
+		return false
+	}
+	pawnCast := pawnAttackBoards[s.turn][square]
+	return pawnCast&s.board[enemyIndex+Pawn] == EmptyBitboard
+
 }
 
 func (s *State) EnPassantSafetyCheck(startingSquare Square, desSquare Square, friendIndex uint8, enemyIndex uint8, occupied Bitboard) bool {
@@ -890,7 +1011,7 @@ func FenState(fenString string) *State {
 		if err != nil {
 			panic("Invalid Fen String (Invalid En Passant Square)")
 		}
-		enPassantSquare = Square(rank*8 + file)
+		enPassantSquare = Square((rank-1)*8 + file)
 
 	}
 	halfMoveClock, err := strconv.Atoi(splitFenString[4])
@@ -915,12 +1036,14 @@ func FenState(fenString string) *State {
 	repetitionMap := make(RepetitionMap, 50)
 	hashHistory := NewHashHistory(5)
 	pinInfo := PinInfo{pinnedBoards: [2]Bitboard{}, pinners: [2][8]Square{}, pinsSet: [2]bool{false, false}}
+	checkInfo := CheckInfo{checkers: 0, checksSet: false, blockingBitboard: EmptyBitboard, enPassantBlockingBitboard: EmptyBitboard}
 	s := &State{
 		board:                  board,
 		sideOccupied:           sideOccupied,
 		occupied:               occupied,
 		notOccupied:            ^occupied,
 		pinInfo:                pinInfo,
+		checkInfo:              checkInfo,
 		turn:                   turn,
 		enPassantSquare:        enPassantSquare,
 		check:                  false,

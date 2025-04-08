@@ -15,15 +15,12 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
-	moveStack.getCurrent().setupQuietLoading()
-	moveStack.addCurrent(SimpleMoveFromString("d2d1"))
-	moveStack.addCurrent(SimpleMoveFromString("d2d2"))
-	moveStack.addCurrent(SimpleMoveFromString("d2d3"))
-	moveStack.addCurrent(SimpleMoveFromString("d2d4"))
-	moveStack.addCurrent(SimpleMoveFromString("d2d5"))
+	s := FenState("7K/8/8/1k1p4/1pP5/8/8/8 b - c3 0 1")
+	s.NewGenMoves(true, UniversalBitboard)
 	for moveStack.getCurrent().nextMove() {
-		fmt.Println(moveStack.getCurrent().getMove().ShortString())
+		fmt.Println(moveStack.getCurrent().getMove())
 	}
+	// PerftTester()
 	// SetupTable(4096)
 	// UIGame()
 }
@@ -47,7 +44,7 @@ func UIGame() {
 			break
 		}
 	}
-	gameState := FenState("7k/5bpr/4R3/q3b3/1p5N/3B4/p3K1Q1/8 w - - 0 2")
+	gameState := FenState("4q1kr/p6p/1prQPppB/4n3/4P3/2P5/PP2B2P/R5K1 w - - 0 24")
 	gameOver := false
 	playerTurn := false
 	if playerSide == gameState.turn {

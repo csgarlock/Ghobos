@@ -27,8 +27,8 @@ const (
 	AllNode      NodeType = 2
 	TerminalNode NodeType = 3
 
-	mateTranspositionValue     = 1 * CentiPawn
-	stalemateTranpositionValue = 0
+	mateTranspositionValue      = 1 * CentiPawn
+	stalemateTranspositionValue = 0
 
 	bitMask14 uint16 = 0x3FFF
 )

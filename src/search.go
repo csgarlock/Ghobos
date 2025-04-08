@@ -177,7 +177,7 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 			s.searchParameters.trueDepth--
 			return clampInt32(eval, alpha, beta), NilMove
 		} else {
-			transpositionTable.AddState(s, stalemateTranpositionValue, NilMove, uint16(depth), TerminalNode)
+			transpositionTable.AddState(s, stalemateTranspositionValue, NilMove, uint16(depth), TerminalNode)
 			s.searchParameters.trueDepth--
 			return clampInt32(0, alpha, beta), NilMove
 		}

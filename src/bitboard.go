@@ -65,7 +65,7 @@ func sFromRankFile(file int, rank int) Square {
 	return Square(rank*8 + file)
 }
 
-func (s Square) tryStep(step Step) bool { return stepboards[stepMap[step]][s] }
+func (s Square) tryStep(step Step) bool { return stepBoards[stepMap[step]][s] }
 func (s Square) Step(step Step) Square  { return (s + Square(step)) % 64 }
 
 func (s Square) Rank() int8 { return int8(s / 8) }
@@ -79,16 +79,6 @@ func PopLSB(b *Bitboard) Square {
 
 func GetLSB(b Bitboard) Square {
 	return Square(bits.TrailingZeros64(uint64(b)))
-}
-
-func PopMSB(b *Bitboard) Square {
-	msb := 63 - Square(bits.LeadingZeros64(uint64(*b)))
-	*b &= (*b - 1)
-	return msb
-}
-
-func GetMSB(b Bitboard) Square {
-	return 63 - Square(bits.LeadingZeros64(uint64(b)))
 }
 
 func BitCount(b Bitboard) int {

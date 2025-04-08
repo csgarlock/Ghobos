@@ -17,6 +17,8 @@ type MoveListStack struct {
 	current   uint16
 }
 
+// Should switch to unsafe pointers at some point
+// not going to just yet while still developing
 type MoveList struct {
 	slice         []Move
 	firstEmpty    uint16
@@ -24,7 +26,7 @@ type MoveList struct {
 	// The first capture that has not been searched
 	captureRemainsPointer uint16
 	quietStartPinter      uint16
-	secondCaputurePass    bool
+	secondCapturePass     bool
 }
 
 func newMoveListStack(stackSize uint16, sliceSize uint16) MoveListStack {
@@ -45,7 +47,7 @@ func (moveStack *MoveListStack) incrementStack() {
 
 func (moveStack *MoveListStack) decrementStack() {
 	moveStack.current--
-	if moveStack.current < 0 {
+	if moveStack.current > uint16(len(moveStack.moveLists)) {
 		panic("Too few MoveLists")
 	}
 }
@@ -80,14 +82,14 @@ func (moveList *MoveList) addMove(move Move) {
 // Moves the searchPointer to the next move and returns whether there is another move
 func (moveList *MoveList) nextMove() bool {
 	moveList.searchPointer++
-	if !moveList.secondCaputurePass {
+	if !moveList.secondCapturePass {
 		if moveList.searchPointer < moveList.firstEmpty {
 			return true
 		} else {
 			if moveList.captureRemainsPointer == moveList.quietStartPinter {
 				return false
 			} else {
-				moveList.secondCaputurePass = true
+				moveList.secondCapturePass = true
 				moveList.searchPointer = moveList.captureRemainsPointer
 				return true
 			}

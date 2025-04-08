@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type Step int8
 
 const (
@@ -58,8 +60,7 @@ type Piece interface {
 	// Params:
 	// Square: square the piece is on
 	// Bitboard: occupied squares
-	// Bitboard: mask for moves
-	getMoveBitboard(Square, Bitboard, Bitboard) Bitboard
+	getMoveBitboard(Square, Bitboard) Bitboard
 }
 
 type KingTemplate struct{}
@@ -81,7 +82,7 @@ var knightSteps [8]Step = [8]Step{KnightStepRightUp, KnightStepUpRight, KnightSt
 
 var squareToSquareStep [64][64]Step = [64][64]Step{}
 
-var stepboards [16][64]bool = [16][64]bool{}
+var stepBoards [16][64]bool = [16][64]bool{}
 
 var moveBoards [5][64]Bitboard = [5][64]Bitboard{}
 var pawnAttackBoards [2][64]Bitboard = [2][64]Bitboard{}
@@ -94,30 +95,145 @@ var queenInstance QueenTemplate = QueenTemplate{}
 var rookInstance RookTemplate = RookTemplate{}
 var bishopInstance BishopTemplate = BishopTemplate{}
 var knightInstance KnightTemplate = KnightTemplate{}
-var pawnInstance PawnTemplate = PawnTemplate{}
+var _ PawnTemplate = PawnTemplate{}
 
-func (KingTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
-	return moveBoards[King][square] & mask
+func (KingTemplate) getMoveBitboard(square Square, _ Bitboard) Bitboard {
+	return moveBoards[King][square]
 }
 
-func (QueenTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
-	return getQueenMoves(square, occupied) & mask
+func (QueenTemplate) getMoveBitboard(square Square, occupied Bitboard) Bitboard {
+	return getQueenMoves(square, occupied)
 }
 
-func (RookTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
-	return getRookMoves(square, occupied) & mask
+func (RookTemplate) getMoveBitboard(square Square, occupied Bitboard) Bitboard {
+	return getRookMoves(square, occupied)
 }
 
-func (BishopTemplate) getMoveBitboard(square Square, occupied Bitboard, mask Bitboard) Bitboard {
-	return getBishopMoves(square, occupied) & mask
+func (BishopTemplate) getMoveBitboard(square Square, occupied Bitboard) Bitboard {
+	return getBishopMoves(square, occupied)
 }
 
-func (KnightTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
-	return moveBoards[Knight][square] & mask
+func (KnightTemplate) getMoveBitboard(square Square, _ Bitboard) Bitboard {
+	return moveBoards[Knight][square]
 }
 
-func (PawnTemplate) getMoveBitboard(square Square, _ Bitboard, mask Bitboard) Bitboard {
+// DO NOT USE
+func (PawnTemplate) getMoveBitboard(square Square, _ Bitboard) Bitboard {
 	return EmptyBitboard
+}
+
+func (s *State) genAllPawnMoves(captures bool, mask Bitboard, moveList *MoveList) {
+	friendIndex := 6 * s.turn
+	if captures {
+		pawnBoard := s.board[friendIndex+Pawn]
+		if boardFromSquare(s.enPassantSquare)&(s.checkInfo.enPassantBlockingBitboard|mask) != EmptyBitboard {
+			enPawnBoard := pawnAttackBoards[1-s.turn][s.enPassantSquare] & pawnBoard
+			fmt.Println(enPawnBoard)
+			fmt.Println(s.enPassantSquare)
+			for enPawnBoard != EmptyBitboard {
+				pawnSquare := PopLSB(&enPawnBoard)
+				moveList.addMove(BuildMove(pawnSquare, s.enPassantSquare, 0, EnPassantSpacialMove))
+			}
+		}
+		for pawnBoard != EmptyBitboard {
+			pawnSquare := PopLSB(&pawnBoard)
+			attackBoard := pawnAttackBoards[s.turn][pawnSquare] & mask
+			for attackBoard != EmptyBitboard {
+				desSquare := PopLSB(&attackBoard)
+				BuildPawnMoves(pawnSquare, desSquare, moveList)
+			}
+		}
+	} else {
+		pawnBoard := s.board[friendIndex+Pawn]
+		if s.turn == White {
+			if pawnBoard&Rank1 != EmptyBitboard {
+				genPawnDoublePushes(pawnBoard&Rank1, s.notOccupied, mask, White, moveList)
+			}
+			pawnBoard &= ^Rank1
+			for pawnBoard != EmptyBitboard {
+				pawnSquare := PopLSB(&pawnBoard)
+				genPawnSinglePushes(pawnSquare, s.notOccupied, mask, White, moveList)
+			}
+		} else {
+			if pawnBoard&Rank1 != EmptyBitboard {
+				genPawnDoublePushes(pawnBoard&Rank6, s.notOccupied, mask, Black, moveList)
+			}
+			pawnBoard &= ^Rank6
+			for pawnBoard != EmptyBitboard {
+				pawnSquare := PopLSB(&pawnBoard)
+				genPawnSinglePushes(pawnSquare, s.notOccupied, mask, Black, moveList)
+			}
+		}
+	}
+}
+
+func genPawnSinglePushes(pawnSquare Square, notOccupied Bitboard, mask Bitboard, turn uint8, moveList *MoveList) {
+	if turn == White {
+		desBoard := boardFromSquare(pawnSquare) << 8 & notOccupied & mask
+		if desBoard != EmptyBitboard {
+			BuildPawnMoves(pawnSquare, GetLSB(desBoard), moveList)
+		}
+	} else {
+		desBoard := boardFromSquare(pawnSquare) >> 8 & notOccupied & mask
+		if desBoard != EmptyBitboard {
+			BuildPawnMoves(pawnSquare, GetLSB(desBoard), moveList)
+		}
+	}
+}
+
+func genPawnDoublePushes(pawns Bitboard, notOccupied Bitboard, mask Bitboard, turn uint8, moveList *MoveList) {
+	validBoard := EmptyBitboard
+	if turn == White {
+		validBoard = Rank2 & notOccupied
+		validBoard |= (validBoard << 8) & notOccupied
+	} else {
+		validBoard = Rank5 & notOccupied
+		validBoard |= (validBoard >> 8) & notOccupied
+	}
+	validBoard &= mask
+	for pawns != EmptyBitboard {
+		pawnSquare := PopLSB(&pawns)
+		pawnMoves := files[pawnSquare.File()] & validBoard
+		for pawnMoves != EmptyBitboard {
+			desSquare := PopLSB(&pawnMoves)
+			moveList.addMove(BuildSimpleMove(pawnSquare, desSquare))
+		}
+	}
+}
+
+func (s *State) genKingMoves(captures bool, mask Bitboard, moveList *MoveList) {
+	friendIndex := 6 * s.turn
+	kingBoard := s.board[friendIndex+King]
+	kingSquare := GetLSB(kingBoard)
+	// Temporarily remove king from occupied to check move safety
+	s.occupied &= ^kingBoard
+	moveBoard := kingInstance.getMoveBitboard(kingSquare, EmptyBitboard) & mask
+	for moveBoard != EmptyBitboard {
+		desSquare := PopLSB(&moveBoard)
+		if s.isSquareSafeEasy(desSquare) {
+			moveList.addMove(BuildSimpleMove(kingSquare, desSquare))
+		}
+	}
+	s.occupied |= kingBoard
+	if !captures && !s.check {
+		rankIndex := s.turn * 56
+		if s.castleAvailability[s.turn] {
+			if s.occupied&Bitboard(0x60<<rankIndex) == EmptyBitboard && s.board[friendIndex+Rook]&Bitboard(0x80<<rankIndex) != EmptyBitboard {
+				desSquare := kingSquare + 2
+				if s.isSquareSafeEasy(5+Square(rankIndex)) && s.isSquareSafeEasy(6+Square(rankIndex)) {
+					moveList.addMove(BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
+				}
+			}
+		}
+		if s.castleAvailability[s.turn+2] {
+			if s.occupied&Bitboard(0xE<<rankIndex) == EmptyBitboard && s.board[friendIndex+Rook]&Bitboard(0x1<<rankIndex) != EmptyBitboard {
+				desSquare := kingSquare - 2
+				if s.isSquareSafeEasy(3+Square(rankIndex)) && s.isSquareSafeEasy(2+Square(rankIndex)) {
+					moveList.addMove(BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
+				}
+			}
+		}
+	}
 }
 
 func InitializeMoveBoards() {
@@ -182,9 +298,9 @@ func InitializeStepBoard() {
 		for square = 0; square < 64; square++ {
 			squareStep := square.Step(step)
 			if squareStep.Rank()-square.Rank() == rankDiff && squareStep.File()-square.File() == fileDiff {
-				stepboards[i][square] = true
+				stepBoards[i][square] = true
 			} else {
-				stepboards[i][square] = false
+				stepBoards[i][square] = false
 			}
 		}
 	}
@@ -260,7 +376,7 @@ func FindBlockedSlidingAttack(square Square, steps *[4]Step, occupied Bitboard) 
 }
 
 func GetPawnMoves(square Square, occupied Bitboard, moveStep Step, homeRank int8) Bitboard {
-	var resultBoard Bitboard = 0
+	var resultBoard Bitboard = EmptyBitboard
 	if square.Rank() == homeRank {
 		square = square.Step(moveStep)
 		if occupied&(1<<Bitboard(square)) == 0 {

@@ -50,6 +50,17 @@ func BuildSimpleMove(origin Square, destination Square) Move {
 	return Move(origin) | (Move(destination) << 6)
 }
 
+func BuildPawnMoves(origin Square, destination Square, moveList *MoveList) {
+	if !(destination.Rank() == 0 || destination.Rank() == 8) {
+		moveList.addMove(BuildSimpleMove(origin, destination))
+	} else {
+		moveList.addMove(BuildMove(origin, destination, QueenPromotion, PromotionSpecialMove))
+		moveList.addMove(BuildMove(origin, destination, RookPromotion, PromotionSpecialMove))
+		moveList.addMove(BuildMove(origin, destination, KnightPromotion, PromotionSpecialMove))
+		moveList.addMove(BuildMove(origin, destination, BishopPromotion, PromotionSpecialMove))
+	}
+}
+
 func SimpleMoveFromString(moveString string) Move {
 	return BuildSimpleMove(SFS(moveString[0:2]), SFS(moveString[2:4]))
 }
