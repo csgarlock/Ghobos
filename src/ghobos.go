@@ -15,12 +15,21 @@ func main() {
 	InitializeMoveBoards()
 	InitializeEvalVariables()
 	setupFillBoards()
-	s := FenState("7K/8/8/1k1p4/1pP5/8/8/8 b - c3 0 1")
-	s.NewGenMoves(true, UniversalBitboard)
-	for moveStack.getCurrent().nextMove() {
-		fmt.Println(moveStack.getCurrent().getMove())
-	}
-	// PerftTester()
+	// s := FenState("rnbqk1nr/pppp1ppp/8/4p3/1b1P4/2N5/PPP1PPPP/R1BQKBNR w KQkq - 2 3")
+	// fmt.Println(s)
+	// fmt.Println(s.MakeMove(BuildSimpleMove(SFS("c3"), SFS("d5"))))
+	// fmt.Println(s)
+	// s := FenState("rnbqkb1r/pppppp1p/7n/6pQ/8/4P3/PPPP1PPP/RNB1KBNR b KQkq g6 0 2")
+	// fmt.Println(s)
+	// fmt.Println(s.isSquareSafeEasy(GetLSB(s.board[BlackKing])))
+	// s.MakeMove((SimpleMoveFromString("e2e4")))
+	// s := FenState("8/8/8/KPpPr3/5p1k/8/6P1/1R6 w - c6 0 4")
+	// s.NewGenMoves(true, UniversalBitboard)
+	// for moveStack.getCurrent().nextMove() {
+	// 	fmt.Println(moveStack.getCurrent().getMove())
+	// }
+	// PerftCheckerNew(7, FenState("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"))
+	PerftTester()
 	// SetupTable(4096)
 	// UIGame()
 }
@@ -44,7 +53,7 @@ func UIGame() {
 			break
 		}
 	}
-	gameState := FenState("4q1kr/p6p/1prQPppB/4n3/4P3/2P5/PP2B2P/R5K1 w - - 0 24")
+	gameState := FenState("6k1/6p1/8/6KQ/1r6/q2b4/8/8 w - - 0 1")
 	gameOver := false
 	playerTurn := false
 	if playerSide == gameState.turn {

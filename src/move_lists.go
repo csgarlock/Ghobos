@@ -1,6 +1,8 @@
 package main
 
-import "sort"
+import (
+	"sort"
+)
 
 type QuietMoveList struct {
 	slice      []QuietMove
@@ -58,10 +60,6 @@ func (moveStack *MoveListStack) resetCurrent() {
 
 func (moveStack *MoveListStack) getCurrent() *MoveList {
 	return &moveStack.moveLists[moveStack.current]
-}
-
-func (moveStack *MoveListStack) addCurrent(move Move) {
-	moveStack.moveLists[moveStack.current].addMove(move)
 }
 
 // Resets all pointers to 0 other than search pointer. Sets search pointer to

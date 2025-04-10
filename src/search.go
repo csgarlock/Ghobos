@@ -217,7 +217,10 @@ func (s *State) NegaMax(depth int32, alpha int32, beta int32, skipIID bool, skip
 				reduction += 1
 			}
 		}
-		s.MakeMove(move)
+		status := s.MakeMove(move)
+		if !status {
+			fmt.Println("Uh Oh")
+		}
 		score := int32(0)
 		if i == 0 {
 			score, _ = s.NegaMax(max(depth-reduction-1, 0), -beta, -alpha, false, false, false)

@@ -49,7 +49,7 @@ func (b *Board) String() string {
 		}
 	}
 	resultS := ""
-	bottomline := "  -----------------"
+	bottomLine := "  -----------------"
 	for i := 0; i < 8; i++ {
 		lineS := strconv.FormatInt(int64(i+1), 10) + " "
 		for j := 0; j < 8; j++ {
@@ -59,7 +59,7 @@ func (b *Board) String() string {
 			}
 			lineS += "|" + spot
 		}
-		resultS = lineS + "|\n" + bottomline + "\n" + resultS
+		resultS = lineS + "|\n" + bottomLine + "\n" + resultS
 	}
-	return bottomline + "\n" + resultS + "   a b c d e f g h "
+	return bottomLine + "\n" + resultS + "   a b c d e f g h "
 }

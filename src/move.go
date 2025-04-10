@@ -51,7 +51,7 @@ func BuildSimpleMove(origin Square, destination Square) Move {
 }
 
 func BuildPawnMoves(origin Square, destination Square, moveList *MoveList) {
-	if !(destination.Rank() == 0 || destination.Rank() == 8) {
+	if !(destination.Rank() == 0 || destination.Rank() == 7) {
 		moveList.addMove(BuildSimpleMove(origin, destination))
 	} else {
 		moveList.addMove(BuildMove(origin, destination, QueenPromotion, PromotionSpecialMove))

@@ -77,8 +77,9 @@ var quietMoves QuietMoveList = newQuietMoveList(100)
 var captureMoves CaptureMoveList = newCaptureMoveList(50)
 var moveStack MoveListStack = newMoveListStack(50, 100)
 
-func (s *State) MakeMove(move Move) {
-	s.lastCapOrPawn += 1
+// Return value indicates if the move was made successfully
+func (s *State) MakeMove(move Move) bool {
+	s.lastCapOrPawn++
 	friendIndex := s.turn * 6
 	enemyIndex := (1 - s.turn) * 6
 	if s.canEnpassant {
@@ -96,6 +97,9 @@ func (s *State) MakeMove(move Move) {
 				startBoardIndex = int(i)
 			}
 		}
+		originalStartBoard := *startBoardPtr
+		originalSideOccupiedFriendly := s.sideOccupied[s.turn]
+		originalSideOccupiedEnemy := s.sideOccupied[1-s.turn]
 		s.hashcode ^= squareHashes[startBoardIndex][startSquare]
 		desSquare := move.DestinationSquare()
 		desBoard := boardFromSquare(desSquare)
@@ -114,7 +118,9 @@ func (s *State) MakeMove(move Move) {
 		s.sideOccupied[s.turn] ^= startBoard
 		s.sideOccupied[s.turn] |= desBoard
 		isCapture := false
+		originalDesBoard := EmptyBitboard
 		if desBoardPtr != nil {
+			originalDesBoard = *desBoardPtr
 			*desBoardPtr ^= desBoard
 			s.sideOccupied[1-s.turn] ^= desBoard
 			s.captureHistory.Push(uint8(desBoardIndex), s.ply)
@@ -123,6 +129,39 @@ func (s *State) MakeMove(move Move) {
 			isCapture = true
 			s.hashcode ^= squareHashes[desBoardIndex][desSquare]
 		}
+		// Legality check
+		if startBoardIndex != King {
+			kingSquare := GetLSB(s.board[friendIndex+King])
+			step := squareToSquareStep[kingSquare][startSquare]
+			if step != 0 {
+				stepId := getStepId(step)
+				sliderBoard := s.board[enemyIndex+Queen]
+				if stepId%2 == 0 {
+					sliderBoard |= s.board[enemyIndex+Rook]
+				} else {
+					sliderBoard |= s.board[enemyIndex+Bishop]
+				}
+				sliderBoard &= squareToEdgeFillBoards[stepId][kingSquare]
+				for sliderBoard != EmptyBitboard {
+					sliderSquare := PopLSB(&sliderBoard)
+					if squareToSquareFillBoards[kingSquare][sliderSquare]&((s.occupied|desBoard) & ^startBoard) == EmptyBitboard {
+						// Invalid Move must unwind state
+						s.lastCapOrPawn--
+						s.hashcode = s.hashHistory.Peek()
+						*startBoardPtr = originalStartBoard
+						s.sideOccupied[s.turn] = originalSideOccupiedFriendly
+						s.sideOccupied[1-s.turn] = originalSideOccupiedEnemy
+						if desBoardPtr != nil {
+							*desBoardPtr = originalDesBoard
+							s.captureHistory.Pop()
+							s.lastCapOrPawn = s.fiftyMoveHistory.Pop().lastCount + 1
+						}
+						return false
+					}
+				}
+			}
+		}
+		// Legality check end
 		specialMove := move.SpecialMove()
 		if specialMove == CastleSpecialMove {
 			rankIndex := Square(s.turn * 56)
@@ -240,6 +279,8 @@ func (s *State) MakeMove(move Move) {
 	s.check = !isSquareSafe(PopLSB(&enemyKingBoard), enemyBoard, friendSafetyCheck, s.turn)
 	s.ply++
 	s.repetitionMap.add(s.hashcode)
+	s.clearChecks()
+	return true
 }
 
 func (s *State) UnMakeMove(move Move) {
@@ -786,7 +827,7 @@ func (s *State) isSquareSafeEasy(square Square) bool {
 	if knightCast&s.board[enemyIndex+Knight] != EmptyBitboard {
 		return false
 	}
-	kingCast := moveBoards[Knight][square]
+	kingCast := moveBoards[King][square]
 	if kingCast&s.board[enemyIndex+King] != EmptyBitboard {
 		return false
 	}

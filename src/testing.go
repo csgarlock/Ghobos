@@ -43,13 +43,39 @@ func PerftRunner(depth int64, s *State, expectedCount int64) {
 	unMakeTimer.Reset()
 	var perftCounter int64 = 0
 	start := time.Now()
-	Perft(depth, &perftCounter, s)
+	PerftNew(depth, &perftCounter, s)
 	duration := time.Since(start)
 	rate := float64(perftCounter) / duration.Seconds() / 1_000_000.0
 	fmt.Printf("Expected Node Count: %d. Highest Depth Node Count: %d. Found in %v. Rate: %.2f Million Nodes per Second\n", expectedCount, perftCounter, duration, rate)
 	fmt.Printf("Move Gen Total: %v. Make Total: %v. Unmake Total: %v\n", genTimer.total, makeTimer.total, unMakeTimer.total)
 	if perftCounter != expectedCount {
 		fmt.Println("Error! expected count not equal to found count")
+	}
+}
+
+func PerftNew(depth int64, moveCounter *int64, s *State) {
+	if depth != 0 {
+		moveStack.resetCurrent()
+		genTimer.Start()
+		s.NewGenMoves(true, UniversalBitboard)
+		s.NewGenMoves(false, UniversalBitboard)
+		genTimer.Stop()
+		for moveStack.getCurrent().nextMove() {
+			move := moveStack.getCurrent().getMove()
+			makeTimer.Start()
+			valid := s.MakeMove(move)
+			makeTimer.Stop()
+			if valid {
+				moveStack.incrementStack()
+				PerftNew(depth-1, moveCounter, s)
+				unMakeTimer.Start()
+				s.UnMakeMove(move)
+				unMakeTimer.Stop()
+				moveStack.decrementStack()
+			}
+		}
+	} else {
+		*moveCounter++
 	}
 }
 

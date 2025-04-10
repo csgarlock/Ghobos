@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 type Step int8
 
 const (
@@ -124,15 +122,32 @@ func (PawnTemplate) getMoveBitboard(square Square, _ Bitboard) Bitboard {
 
 func (s *State) genAllPawnMoves(captures bool, mask Bitboard, moveList *MoveList) {
 	friendIndex := 6 * s.turn
+	enemyIndex := 6 * (1 - s.turn)
 	if captures {
 		pawnBoard := s.board[friendIndex+Pawn]
-		if boardFromSquare(s.enPassantSquare)&(s.checkInfo.enPassantBlockingBitboard|mask) != EmptyBitboard {
+		if s.canEnpassant && (s.checkInfo.checkers == 0 || s.checkInfo.enPassantBlockingBitboard != EmptyBitboard) {
 			enPawnBoard := pawnAttackBoards[1-s.turn][s.enPassantSquare] & pawnBoard
-			fmt.Println(enPawnBoard)
-			fmt.Println(s.enPassantSquare)
-			for enPawnBoard != EmptyBitboard {
-				pawnSquare := PopLSB(&enPawnBoard)
-				moveList.addMove(BuildMove(pawnSquare, s.enPassantSquare, 0, EnPassantSpacialMove))
+			if enPawnBoard != EmptyBitboard {
+				eRank := Rank3 << (Bitboard(1-s.turn) * 8)
+				rookSliders := s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook]
+				kingBoard := s.board[friendIndex+King]
+				shouldSafetyCheck := (kingBoard&eRank != EmptyBitboard) && (rookSliders&eRank != EmptyBitboard)
+				for enPawnBoard != EmptyBitboard {
+					pawnSquare := PopLSB(&enPawnBoard)
+					if shouldSafetyCheck {
+						modifiedOccupancy := s.occupied & ^(boardFromSquare(pawnSquare) | boardFromSquare(s.enPassantSquare.Step(-16*Step(1-s.turn)+8)))
+						kingSquare := GetLSB(kingBoard)
+						rookSliderCopy := rookSliders
+						for rookSliderCopy != EmptyBitboard {
+							rookSquare := PopLSB(&rookSliderCopy)
+							if squareToSquareFillBoards[kingSquare][rookSquare]&modifiedOccupancy != EmptyBitboard {
+								moveList.addMove(BuildMove(pawnSquare, s.enPassantSquare, 0, EnPassantSpacialMove))
+							}
+						}
+					} else {
+						moveList.addMove(BuildMove(pawnSquare, s.enPassantSquare, 0, EnPassantSpacialMove))
+					}
+				}
 			}
 		}
 		for pawnBoard != EmptyBitboard {
@@ -155,7 +170,7 @@ func (s *State) genAllPawnMoves(captures bool, mask Bitboard, moveList *MoveList
 				genPawnSinglePushes(pawnSquare, s.notOccupied, mask, White, moveList)
 			}
 		} else {
-			if pawnBoard&Rank1 != EmptyBitboard {
+			if pawnBoard&Rank6 != EmptyBitboard {
 				genPawnDoublePushes(pawnBoard&Rank6, s.notOccupied, mask, Black, moveList)
 			}
 			pawnBoard &= ^Rank6
