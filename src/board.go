@@ -23,16 +23,53 @@ func (b *Board) getPieceAtRanged(s Square, min uint8, max uint8) uint8 {
 }
 
 func (b *Board) getColorPieceAt(s Square, color uint8) uint8 {
+	squareBoard := boardFromSquare(s)
 	if color == White {
-		return b.getPieceAtRanged(s, 0, 5)
+		if b.uGet(WhitePawn)&squareBoard != EmptyBitboard {
+			return WhitePawn
+		} else if b.uGet(WhiteBishop)&squareBoard != EmptyBitboard {
+			return WhiteBishop
+		} else if b.uGet(WhiteKnight)&squareBoard != EmptyBitboard {
+			return WhiteKnight
+		} else if b.uGet(WhiteRook)&squareBoard != EmptyBitboard {
+			return WhiteRook
+		} else if b.uGet(WhiteQueen)&squareBoard != EmptyBitboard {
+			return WhiteQueen
+		} else if b.uGet(WhiteKing)&squareBoard != EmptyBitboard {
+			return WhiteKing
+		} else {
+			return NoPiece
+		}
 	} else {
-		return b.getPieceAtRanged(s, 6, 11)
+		if b.uGet(BlackPawn)&squareBoard != EmptyBitboard {
+			return BlackPawn
+		} else if b.uGet(BlackBishop)&squareBoard != EmptyBitboard {
+			return BlackBishop
+		} else if b.uGet(BlackKnight)&squareBoard != EmptyBitboard {
+			return BlackKnight
+		} else if b.uGet(BlackRook)&squareBoard != EmptyBitboard {
+			return BlackRook
+		} else if b.uGet(BlackQueen)&squareBoard != EmptyBitboard {
+			return BlackQueen
+		} else if b.uGet(BlackKing)&squareBoard != EmptyBitboard {
+			return BlackKing
+		} else {
+			return NoPiece
+		}
 	}
 }
 
 func (b *Board) getPieceAt(s Square) uint8 {
 	return b.getPieceAtRanged(s, 0, 11)
 }
+
+// Does not bounds check
+func (b *Board) uGet(index uint8) Bitboard { return uGetA(&b[0], uint(index)) }
+
+func (b *Board) uGetPtr(index uint8) *Bitboard { return uGetAPtr(&b[0], uint(index)) }
+
+// Does not bounds check
+func (b *Board) uSet(bitboard Bitboard, index uint8) { uSetA(&b[0], bitboard, uint(index)) }
 
 func (b *Board) String() string {
 	pieceMap := [12]string{"K", "Q", "R", "B", "N", "P", "k", "q", "r", "b", "n", "p"}

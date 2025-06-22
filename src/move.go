@@ -22,8 +22,8 @@ const (
 
 	QueenPromotion  = 0
 	RookPromotion   = 1
-	KnightPromotion = 2
-	BishopPromotion = 3
+	BishopPromotion = 2
+	KnightPromotion = 3
 )
 
 func (m Move) OriginSquare() Square {
@@ -34,8 +34,8 @@ func (m Move) DestinationSquare() Square {
 	return Square(m >> 6 & Move(BitMask6))
 }
 
-func (m Move) PromotionType() uint16 {
-	return uint16(m >> 12 & Move(BitMask2))
+func (m Move) PromotionType() uint8 {
+	return uint8(m >> 12 & Move(BitMask2))
 }
 
 func (m Move) SpecialMove() uint16 {

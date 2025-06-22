@@ -124,13 +124,13 @@ func (s *State) genAllPawnMoves(captures bool, mask Bitboard, moveList *MoveList
 	friendIndex := 6 * s.turn
 	enemyIndex := 6 * (1 - s.turn)
 	if captures {
-		pawnBoard := s.board[friendIndex+Pawn]
+		pawnBoard := s.board.uGet(friendIndex + Pawn)
 		if s.canEnpassant && (s.checkInfo.checkers == 0 || s.checkInfo.enPassantBlockingBitboard != EmptyBitboard) {
 			enPawnBoard := pawnAttackBoards[1-s.turn][s.enPassantSquare] & pawnBoard
 			if enPawnBoard != EmptyBitboard {
 				eRank := Rank3 << (Bitboard(1-s.turn) * 8)
-				rookSliders := s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook]
-				kingBoard := s.board[friendIndex+King]
+				rookSliders := s.board.uGet(enemyIndex+Queen) | s.board.uGet(enemyIndex+Rook)
+				kingBoard := s.board.uGet(friendIndex + King)
 				shouldSafetyCheck := (kingBoard&eRank != EmptyBitboard) && (rookSliders&eRank != EmptyBitboard)
 				for enPawnBoard != EmptyBitboard {
 					pawnSquare := PopLSB(&enPawnBoard)
@@ -159,7 +159,7 @@ func (s *State) genAllPawnMoves(captures bool, mask Bitboard, moveList *MoveList
 			}
 		}
 	} else {
-		pawnBoard := s.board[friendIndex+Pawn]
+		pawnBoard := s.board.uGet(friendIndex + Pawn)
 		if s.turn == White {
 			if pawnBoard&Rank1 != EmptyBitboard {
 				genPawnDoublePushes(pawnBoard&Rank1, s.notOccupied, mask, White, moveList)
@@ -218,7 +218,7 @@ func genPawnDoublePushes(pawns Bitboard, notOccupied Bitboard, mask Bitboard, tu
 
 func (s *State) genKingMoves(captures bool, mask Bitboard, moveList *MoveList) {
 	friendIndex := 6 * s.turn
-	kingBoard := s.board[friendIndex+King]
+	kingBoard := s.board.uGet(friendIndex + King)
 	kingSquare := GetLSB(kingBoard)
 	// Temporarily remove king from occupied to check move safety
 	s.occupied &= ^kingBoard
@@ -233,7 +233,7 @@ func (s *State) genKingMoves(captures bool, mask Bitboard, moveList *MoveList) {
 	if !captures && !s.check {
 		rankIndex := s.turn * 56
 		if s.castleAvailability[s.turn] {
-			if s.occupied&Bitboard(0x60<<rankIndex) == EmptyBitboard && s.board[friendIndex+Rook]&Bitboard(0x80<<rankIndex) != EmptyBitboard {
+			if s.occupied&Bitboard(0x60<<rankIndex) == EmptyBitboard && s.board.uGet(friendIndex+Rook)&Bitboard(0x80<<rankIndex) != EmptyBitboard {
 				desSquare := kingSquare + 2
 				if s.isSquareSafeEasy(5+Square(rankIndex)) && s.isSquareSafeEasy(6+Square(rankIndex)) {
 					moveList.addMove(BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))
@@ -241,7 +241,7 @@ func (s *State) genKingMoves(captures bool, mask Bitboard, moveList *MoveList) {
 			}
 		}
 		if s.castleAvailability[s.turn+2] {
-			if s.occupied&Bitboard(0xE<<rankIndex) == EmptyBitboard && s.board[friendIndex+Rook]&Bitboard(0x1<<rankIndex) != EmptyBitboard {
+			if s.occupied&Bitboard(0xE<<rankIndex) == EmptyBitboard && s.board.uGet(friendIndex+Rook)&Bitboard(0x1<<rankIndex) != EmptyBitboard {
 				desSquare := kingSquare - 2
 				if s.isSquareSafeEasy(3+Square(rankIndex)) && s.isSquareSafeEasy(2+Square(rankIndex)) {
 					moveList.addMove(BuildMove(kingSquare, desSquare, 0, CastleSpecialMove))

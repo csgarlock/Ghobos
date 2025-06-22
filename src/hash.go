@@ -47,6 +47,23 @@ func (s *State) hash() uint64 {
 	return hash
 }
 
+func (s *State) xorInSquareHash(piece uint8, square Square) {
+	s.hashcode ^= uGetA2(&squareHashes[0][0], uint(piece), uint(square), 64)
+}
+
+func (s *State) xorInCastleHash(index uint8) {
+	s.hashcode ^= uGetA(&castleHashes[0], uint(index))
+}
+
+// Has built in mod 8
+func (s *State) xorInEnpassantHash(square Square) {
+	s.hashcode ^= uGetA(&enPassantHashes[0], uint(square%8))
+}
+
+func (s *State) swapHashColor() {
+	s.hashcode ^= blackHash
+}
+
 func (repetitionMap *RepetitionMap) add(hash uint64) {
 	_, exists := (*repetitionMap)[hash]
 	if exists {

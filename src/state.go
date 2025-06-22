@@ -83,7 +83,7 @@ func (s *State) MakeMove(move Move) bool {
 	friendIndex := s.turn * 6
 	enemyIndex := (1 - s.turn) * 6
 	if s.canEnpassant {
-		s.hashcode ^= enPassantHashes[s.enPassantSquare%8]
+		s.xorInEnpassantHash(s.enPassantSquare)
 	}
 	if move != PassingMove {
 		startSquare := move.OriginSquare()
@@ -100,10 +100,10 @@ func (s *State) MakeMove(move Move) bool {
 		originalStartBoard := *startBoardPtr
 		originalSideOccupiedFriendly := s.sideOccupied[s.turn]
 		originalSideOccupiedEnemy := s.sideOccupied[1-s.turn]
-		s.hashcode ^= squareHashes[startBoardIndex][startSquare]
+		s.xorInSquareHash(uint8(startBoardIndex), startSquare)
 		desSquare := move.DestinationSquare()
 		desBoard := boardFromSquare(desSquare)
-		s.hashcode ^= squareHashes[startBoardIndex][desSquare]
+		s.xorInSquareHash(uint8(startBoardIndex), desSquare)
 		var desBoardPtr *Bitboard = nil
 		desBoardIndex := 0
 		for i := enemyIndex; i < enemyIndex+6; i++ {
@@ -127,7 +127,7 @@ func (s *State) MakeMove(move Move) bool {
 			s.fiftyMoveHistory.Push(s.lastCapOrPawn-1, s.ply)
 			s.lastCapOrPawn = 0
 			isCapture = true
-			s.hashcode ^= squareHashes[desBoardIndex][desSquare]
+			s.xorInSquareHash(uint8(desBoardIndex), desSquare)
 		}
 		// Legality check
 		if startBoardIndex != King {
@@ -169,13 +169,13 @@ func (s *State) MakeMove(move Move) bool {
 			startingRookSquare := Square(7 + rankIndex)
 			if desSquare == Square(2) || desSquare == Square(58) {
 				s.castleAvailability[s.turn+2] = false
-				s.hashcode ^= castleHashes[s.turn+2]
+				s.xorInCastleHash(s.turn + 2)
 				s.castleHistory.Push(s.turn+2, s.ply)
 				rookSquare = Square(3 + rankIndex)
 				startingRookSquare = Square(0 + rankIndex)
 			} else {
 				s.castleAvailability[s.turn] = false
-				s.hashcode ^= castleHashes[s.turn]
+				s.xorInCastleHash(s.turn)
 				s.castleHistory.Push(s.turn, s.ply)
 			}
 			startRookBoard := boardFromSquare(startingRookSquare)
@@ -184,23 +184,13 @@ func (s *State) MakeMove(move Move) bool {
 			s.board[friendIndex+Rook] |= endRookBoard
 			s.sideOccupied[s.turn] ^= startRookBoard
 			s.sideOccupied[s.turn] |= endRookBoard
-			s.hashcode ^= squareHashes[friendIndex+Rook][startingRookSquare] ^ squareHashes[friendIndex+Rook][rookSquare]
+			s.xorInSquareHash(friendIndex+Rook, startingRookSquare)
+			s.xorInSquareHash(friendIndex+Rook, rookSquare)
 		} else if specialMove == PromotionSpecialMove {
-			s.hashcode ^= squareHashes[startBoardIndex][desSquare]
+			s.xorInSquareHash(uint8(startBoardIndex), desSquare)
 			promotionType := move.PromotionType()
-			if promotionType == QueenPromotion {
-				s.board[friendIndex+Queen] |= desBoard
-				s.hashcode ^= squareHashes[friendIndex+Queen][desSquare]
-			} else if promotionType == RookPromotion {
-				s.board[friendIndex+Rook] |= desBoard
-				s.hashcode ^= squareHashes[friendIndex+Rook][desSquare]
-			} else if promotionType == KnightPromotion {
-				s.board[friendIndex+Knight] |= desBoard
-				s.hashcode ^= squareHashes[friendIndex+Knight][desSquare]
-			} else if promotionType == BishopPromotion {
-				s.board[friendIndex+Bishop] |= desBoard
-				s.hashcode ^= squareHashes[friendIndex+Bishop][desSquare]
-			}
+			*s.board.uGetPtr(friendIndex + promotionType + 1) |= desBoard
+			s.xorInSquareHash(friendIndex+promotionType+1, desSquare)
 			*startBoardPtr ^= desBoard
 		} else if specialMove == EnPassantSpacialMove {
 			enemyPawnBoard := &s.board[enemyIndex+Pawn]
@@ -212,7 +202,7 @@ func (s *State) MakeMove(move Move) bool {
 			enPassantCaptureBoard := boardFromSquare(enPassantCaptureSquare)
 			*enemyPawnBoard ^= enPassantCaptureBoard
 			s.sideOccupied[1-s.turn] ^= enPassantCaptureBoard
-			s.hashcode ^= squareHashes[enemyIndex+Pawn][enPassantCaptureSquare]
+			s.xorInSquareHash(enemyIndex+Pawn, enPassantCaptureSquare)
 			s.captureHistory.Push(enemyIndex+Pawn, s.ply)
 		}
 		s.canEnpassant = false
@@ -226,7 +216,7 @@ func (s *State) MakeMove(move Move) bool {
 					s.enPassantSquare = startSquare.Step(DownStep)
 				}
 				s.enPassantSquareHistory.Push(s.enPassantSquare, s.ply)
-				s.hashcode ^= enPassantHashes[s.enPassantSquare%8]
+				s.xorInEnpassantHash(s.enPassantSquare)
 				s.canEnpassant = true
 			}
 			if !isCapture {
@@ -236,23 +226,23 @@ func (s *State) MakeMove(move Move) bool {
 		} else if startBoardIndex == int(friendIndex)+King {
 			if s.castleAvailability[s.turn] {
 				s.castleAvailability[s.turn] = false
-				s.hashcode ^= castleHashes[s.turn]
+				s.xorInCastleHash(s.turn)
 				s.castleHistory.Push(s.turn, s.ply)
 			}
 			if s.castleAvailability[s.turn+2] {
 				s.castleAvailability[s.turn+2] = false
-				s.hashcode ^= castleHashes[s.turn+2]
+				s.xorInCastleHash(s.turn + 2)
 				s.castleHistory.Push(s.turn+2, s.ply)
 			}
 		} else if startBoardIndex == int(friendIndex)+Rook {
 			if startSquare == Square(7+(8*s.turn)) && s.castleAvailability[s.turn] {
 				s.castleAvailability[s.turn] = false
-				s.hashcode ^= castleHashes[s.turn]
+				s.xorInCastleHash(s.turn)
 				s.castleHistory.Push(s.turn, s.ply)
 			}
 			if startSquare == Square(8*s.turn) && s.castleAvailability[s.turn+2] {
 				s.castleAvailability[s.turn+2] = false
-				s.hashcode ^= castleHashes[s.turn+2]
+				s.xorInCastleHash(s.turn + 2)
 				s.castleHistory.Push(s.turn+2, s.ply)
 			}
 		}
@@ -265,7 +255,7 @@ func (s *State) MakeMove(move Move) bool {
 		s.enPassantSquare = Square(100)
 	}
 	s.turn = 1 - s.turn
-	s.hashcode ^= blackHash
+	s.swapHashColor()
 	s.hashHistory.Push(s.hashcode)
 	enemyKingBoard := s.board[enemyIndex+King]
 	enemyBoard := enemyKingBoard | s.board[enemyIndex+Queen] | s.board[enemyIndex+Rook] | s.board[enemyIndex+Bishop] | s.board[enemyIndex+Knight] | s.board[enemyIndex+Pawn]
@@ -760,10 +750,10 @@ func (s *State) NewGenMoves(captures bool, mask Bitboard) {
 	friendIndex := 6 * s.turn
 	moveList := moveStack.getCurrent()
 	if s.checkInfo.checkers < 2 {
-		genPieceMoves(bishopInstance, s.board[friendIndex+Bishop], s.occupied, blockMask, moveList)
-		genPieceMoves(knightInstance, s.board[friendIndex+Knight], s.occupied, blockMask, moveList)
-		genPieceMoves(queenInstance, s.board[friendIndex+Queen], s.occupied, blockMask, moveList)
-		genPieceMoves(rookInstance, s.board[friendIndex+Rook], s.occupied, blockMask, moveList)
+		genPieceMoves(bishopInstance, s.board.uGet(friendIndex+Bishop), s.occupied, blockMask, moveList)
+		genPieceMoves(knightInstance, s.board.uGet(friendIndex+Knight), s.occupied, blockMask, moveList)
+		genPieceMoves(queenInstance, s.board.uGet(friendIndex+Queen), s.occupied, blockMask, moveList)
+		genPieceMoves(rookInstance, s.board.uGet(friendIndex+Rook), s.occupied, blockMask, moveList)
 		s.genAllPawnMoves(captures, blockMask, moveList)
 	}
 	s.genKingMoves(captures, mask, moveList)
